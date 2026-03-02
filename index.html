@@ -2213,8 +2213,7 @@
           e.preventDefault();
           const frame = xToFrame(rawX);
           const tracksRect0 = elTracks.getBoundingClientRect();
-          const startY =
-            e.clientY - tracksRect0.top + (elTimelineWrap.scrollTop || 0);
+          const startY = e.clientY - tracksRect0.top;
           dragSelectState = {
             startFrame: frame,
             curFrame: frame,
@@ -2367,8 +2366,7 @@
         if (dragSelectState) {
           const tracksRect = elTracks.getBoundingClientRect();
           const rawX = e.clientX - tracksRect.left + elTimelineWrap.scrollLeft;
-          const rawY =
-            e.clientY - tracksRect.top + (elTimelineWrap.scrollTop || 0);
+          const rawY = e.clientY - tracksRect.top;
           dragSelectState.curFrame = xToFrame(rawX);
           dragSelectState.curY = rawY;
           updateSelectRect(
@@ -2716,7 +2714,7 @@
       /* ── Helper: find the track-row element at a given client Y ─ */
       function getRowAtClientY(clientY) {
         const tracksRect = elTracks.getBoundingClientRect();
-        const rawY = clientY - tracksRect.top + (elTimelineWrap.scrollTop || 0);
+        const rawY = clientY - tracksRect.top;
         for (const row of elTracks.querySelectorAll(".track-row")) {
           if (rawY >= row.offsetTop && rawY < row.offsetTop + row.offsetHeight)
             return row;
