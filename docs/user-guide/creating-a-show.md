@@ -1,102 +1,73 @@
-# Creating a Show — Step by Step
+# Creating a Show
 
-This page walks you through the complete process of creating a new animatronic show using the auto-generation feature.
-
----
-
-## Step 1: Select Your Band
-
-At the top of the page, choose which animatronic system you're programming for:
-
-- **Rock-Afire Explosion** — 7 characters (Rolfe, Earl, Fatz, Dook LaRue, Beach Bear, Mitzi, Billy Bob)
-- **Munch's Make Believe Band** — 5 characters (Chuck E. Cheese, Munch, Helen Henny, Jasper T. Jowls, Pasqually)
-
-The character monitor panels below will update to reflect your selection.
+This guide walks through creating a new show from scratch in the Cyberstar Simulator.
 
 ---
 
-## Step 2: Upload Your Audio
+## 1. Open the App
 
-Click the **Upload Audio** button in the left sidebar (or drag-and-drop an audio file anywhere on the page).
-
-**Supported formats:** WAV only — MP3 and other formats are not valid. SPTE only accepts WAV files, so the simulator enforces this requirement.  
-**Required:** Stereo WAV at 44,100 Hz (16-bit PCM recommended). Do not use MP3, OGG, or any other format.  
-**Duration:** Up to ~10 minutes practical limit (longer shows use more memory)
-
-> **Tip:** The audio you upload becomes the music in your final export. Use the best quality version you have — the simulator will downsample internally for analysis but always uses your original for output.
-
-After uploading:
-
-- The file name appears in the "Now Playing" card
-- A Python progress overlay appears
+Open `index.html` in a modern browser (Chrome or Edge recommended for Pyodide compatibility). The piano roll editor loads immediately — no server required.
 
 ---
 
-## Step 3: Wait for Show Generation
+## 2. Start a New Show
 
-The **Python progress modal** appears while the system:
+Click **"New Show"** in the toolbar. A modal appears with fields for:
 
-1. **Prepares audio** (8%) — Decodes your audio file using the Web Audio API
-2. **Downsamples** (22%) — Mixes to mono and reduces to 11,025 Hz for analysis
-3. **Loads Python** (32%) — Starts the Pyodide WASM runtime (30 MB download, first time only; cached after)
-4. **Runs Python analysis** (48%) — Beat detection, onset detection across 4 frequency bands
-5. **Analysis complete** (95%) — Choreography generated, loading into the simulator
-6. **Done** (100%) — Modal closes, show is ready
+- **Show Title** — used as the filename when exporting
+- **Duration (frames)** — default 9000 frames (3 minutes at 50 fps); 1 frame = 20 ms
 
-Typical times:
-
-- First ever load (downloads Pyodide): 1–3 minutes
-- Subsequent loads (Pyodide cached): 5–20 seconds depending on song length
+Click **Create** to initialise a blank `showData` object and clear the timeline.
 
 ---
 
-## Step 4: Preview the Show
+## 3. (Optional) Load a WAV File
 
-Once generation completes, click **Play** (▶) to preview your show.
+Click **"Load WAV"** to open a song WAV file. The file is decoded into an `AudioBuffer` used for:
 
-### What You'll See
+- **Playback reference** — hear the music while drawing choreography
+- **Export** — music samples are mixed into channels 1 and 2 of the 4-channel output WAV
 
-- **Character monitors** light up as actuators fire — green LEDs indicate active movements
-- **Progress bar** advances in real time alongside the music
-- **BMC signal** is generated and streamed to the Web Audio API (you can monitor it on an oscilloscope if you have one connected)
-
-### What You're Hearing
-
-The music plays through your speakers. The BMC control signals are also playing (on Ch2/Ch3 internally) but are not routed to your speakers during preview — you'd hear a screech if they were.
+Loading a WAV is optional. If you skip it, the export will still produce valid BMC data on channels 3 and 4; the music channels will be silent.
 
 ---
 
-## Step 5: Evaluate the Choreography
+## 4. Draw Signal Blocks
 
-While watching the preview, check:
+Each row in the timeline represents one **movement** for one character. Rows are grouped by character (Rolfe, Earl, Dook LaRue, Fatz, Beach Bear, Looney Bird, Mitzi, Billy Bob, Lights).
 
-- **Are the right characters moving?** Rolfe and Mitzi should move most during vocal sections; Dook during drum hits.
-- **Does the timing feel natural?** Mouth movements should roughly sync with vocal onsets.
-- **Is there variety?** The characters should not all move identically.
-
-The SAM auto-generator assigns roles to characters (lead vocalist gets most mouth movement, drummer gets percussion triggers, etc.) but it is working from frequency analysis, not lyrics — it never knows exactly what the lyrics are.
-
----
-
-## Step 6: Fine-Tune (Optional)
-
-If you want to adjust the choreography:
-
-- Click **Edit Show** to open the timeline editor
-- See [manual-editing.md](manual-editing.md) for details
-
-Or continue to export if you're happy with the auto-generated result.
+- **Click and drag** on an empty area of the timeline to create a new signal block.
+- **Click an existing block** to select it; drag to move it.
+- **Right-click a block** (or press Delete with it selected) to remove it.
+- Toggle **"Snap"** in the toolbar to enable frame-boundary snapping.
+- Toggle **"State"** mode to draw toggle-style (press-and-hold) vs. momentary pulses.
 
 ---
 
-## Step 7: Save to My Shows
+## 5. Preview Playback
 
-Click the **Save** button (floppy disk icon) to save the show to `My Shows` in the sidebar. This saves the `.cybershow.json` to browser `localStorage` and persists across page reloads.
+Use the transport buttons:
 
-> **Note:** `localStorage` is browser-specific and not backed up. For long-term preservation, export the `.cybershow.json` file to disk using File → Export JSON.
+| Button    | Action                                       |
+| --------- | -------------------------------------------- |
+| **Play**  | Start playback from the current position     |
+| **Pause** | Pause; resume continues from the same spot   |
+| **Stop**  | Stop and return to frame 0                   |
+
+If a WAV is loaded, audio plays in sync with the timeline cursor. Character highlight in the label panel shows which actuators are currently "on".
 
 ---
 
-## Step 8: Export
+## 6. Save Your Work
 
-See [exporting-for-spte.md](exporting-for-spte.md) for the full export walkthrough.
+Click **"Save"** to persist the current `showData` to `localStorage` under the show title.
+Click **"Saved Shows"** to open a list of saved shows and load a previous one.
+
+Shows are saved as `.cybershow.json`-compatible objects in browser storage — no server needed.
+
+---
+
+## Next Steps
+
+- See [Manual Editing](manual-editing.md) for advanced timeline controls.
+- See [Exporting for SPTE](exporting-for-spte.md) to produce a `.rshw` file.

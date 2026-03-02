@@ -1,4 +1,8 @@
-# cso-exporter.js — CSO Binary File Exporter
+# cso-exporter.js — CSO Binary File Exporter (Legacy v2)
+
+> **v3 notice:** `cso-exporter.js` is a **legacy module** and is not loaded by `index.html` in v3. The `.cso` export path has been removed from the app. This documentation is retained for historical reference.
+
+---
 
 This module converts a finished **4-channel broadcast WAV** (produced by `app.js`) into a `.cso` (Cyberstar Online) binary file. A decoder for this format was planned to be built into RR-Engine, but has not been implemented yet. The file is produced now so the format is established and ready for future use.
 

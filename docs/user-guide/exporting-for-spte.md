@@ -1,113 +1,56 @@
-# Exporting for SPTE — Step by Step
+# Exporting for SPTE
 
-Once your show has been generated and previewed, this page walks through getting it into a format that RR-Engine/SPTE can load.
+Exporting a show produces a validated `.rshw` file that can be loaded directly into RR-Engine or SPTE.
 
----
-
-## Which Format to Export?
-
-| You want to…                                     | Use this format    |
-| ------------------------------------------------ | ------------------ |
-| Load into RR-Engine/SPTE                         | `.rshw`            |
-| Future: Cyberstar Online decoder (not built yet) | `.cso`             |
-| Test the signal on hardware or oscilloscope      | `4-channel WAV`    |
-| Share the show for re-editing                    | `.cybershow.json`  |
-| Archive everything                               | Export all formats |
+The export is a two-stage process: generate a 4-channel WAV, then validate it and produce the `.rshw`.
 
 ---
 
-## Export Step 1: Generate the 4-Channel WAV
+## Stage 1 — Export 4ch WAV
 
-All formats (`.rshw`, `.cso`) start from the 4-channel WAV. When you click any export button, the simulator first generates the WAV internally.
+1. Make sure your show is complete and saved.
+2. Click **"Export 4ch WAV"** in the toolbar.
+3. Pyodide loads (first run only — this may take a few seconds; a progress modal is shown).
+4. The browser downloads a `.wav` file named after your show.
 
-**Click:** "Export 4-ch WAV" (or any format button — the WAV is generated as part of the pipeline)
+The file has four channels:
 
-The Python progress modal will show:
-
-1. Loading Python export... (10%)
-2. Generating BMC frames... (38%)
-3. Mixing music channels... (72%)
-4. Encoding 4-channel WAV... (88%)
-5. Done (100%)
-
-A file named `[show_title]_broadcast.wav` downloads automatically.
-
-> If you only need the raw WAV (for hardware testing), you're done here.
+| Channel | Content                              |
+| ------- | ------------------------------------ |
+| 1       | Music left (or silence if no WAV)    |
+| 2       | Music right (or silence if no WAV)   |
+| 3       | TD BMC (Treble Data control signal)  |
+| 4       | BD BMC (Bass Data control signal)    |
 
 ---
 
-## Export Step 2a: Export .rshw (Legacy Format)
+## Stage 2 — Validate and Export .rshw
 
-**Click:** "Export .rshw"
-
-The 4-channel WAV is processed:
-
-- Music channels extracted and re-wrapped as stereo WAV → `audioData`
-- Control signals decoded from BMC → frame-by-frame BitArray at 60fps → `signalData`
-- Both packed into a .NET BinaryFormatter (NRBF) binary stream
-
-A file named `[show_title].rshw` downloads automatically.
-
-### Loading in RR-Engine
-
-1. Transfer the `.rshw` file to the SPTE machine
-2. Open RR-Engine
-3. File → Load → navigate to and select your `.rshw`
-4. Wait for the show to deserialise (may take a few seconds for long shows)
-5. Press Play
+1. Click **"4ch Tester"** in the toolbar to open the tester modal.
+2. In the **Validate row** at the bottom, click **"Upload 4ch WAV"**.
+3. Select the `.wav` file you just downloaded.
+4. SViz (running in Pyodide) decodes the BMC signals and validates them. This takes a few seconds.
+5. A badge appears:
+   - **PASS** — the signal is hardware-compatible; the "Export .rshw" button is now enabled.
+   - **FAIL** — there is a signal error; check the details shown in the modal.
+6. Click **"Export .rshw"** to download the binary showtape file.
 
 ---
 
-## Export Step 2b: Export .cso (Cyberstar Online Format)
+## Loading the .rshw in SPTE
 
-**Click:** "Export .cso"
-
-The 4-channel WAV is processed:
-
-- Control signals decoded from BMC → frame bitmasks (already decoded — no work at playback time)
-- Music extracted as raw interleaved 16-bit PCM
-- Both written to the CSO1 binary format with a 64-byte header
-
-A file named `[show_title].cso` downloads automatically.
-
-### Validation During CSO Export
-
-The CSO exporter runs automatic validation while it works. Watch the browser console (F12) for messages like:
-
-- `✓ 2847 frames decoded, sync lock established` — good
-- `⚠ 3 blank-bit violations (0.1%)` — acceptable
-- `✗ Frame sync: NO LOCK` — problem, re-export the 4-channel WAV first
-
-### Status in RR-Engine
-
-> **The `.cso` decoder has not been built into RR-Engine yet.** You can export a `.cso` file and it will download, but it cannot currently be loaded in RR-Engine/SPTE. Use `.rshw` for actual playback. The `.cso` format is produced now so the file structure is established and ready for when a decoder is implemented.
+1. Copy the `.rshw` file into your SPTE/RR-Engine showtapes folder.
+2. Launch SPTE and open the showtape browser.
+3. Your show will appear in the list — select it and press Play.
 
 ---
 
-## Export Step 3: Verify with Signal Visualizer
+## Troubleshooting Export Issues
 
-Before loading into SPTE, it's a good idea to verify your 4-channel WAV:
-
-1. Find the **Signal Visualizer** drop zone (bottom of the page)
-2. Drop your downloaded `_broadcast.wav` file onto it
-3. Wait for Python to decode the signal (~5 seconds)
-4. Read the report:
-
-| Check                  | Pass    | Action if Fail                         |
-| ---------------------- | ------- | -------------------------------------- |
-| TD sync lock           | LOCKED  | Re-export; do not use this WAV         |
-| BD sync lock           | LOCKED  | Re-export; do not use this WAV         |
-| TD blank-bit integrity | ≥ 98.0% | File a bug; do not use this WAV        |
-| BD blank-bit integrity | ≥ 98.0% | File a bug; do not use this WAV        |
-| TD bit error rate      | ≤ 2.0%  | Acceptable if close; re-export if > 5% |
-
-A green "PASS" means the file will be accepted by real Cyberstar hardware.
-
----
-
-## Tips
-
-- **Export early and often.** The simulator holds the show in memory only as long as the page is open. If you close the tab before exporting, your work is gone (unless you saved to My Shows first).
-- **Keep the `.cybershow.json`** as your master copy. You can re-export any format from it at any time.
-- **Test one show completely** before doing a whole tape. Load it in RR-Engine, watch one minute of playback, confirm the figures are responding.
-- **Volume balance:** The music in the 4-channel WAV is at the level the Web Audio API decoded it. If it sounds too quiet or loud in SPTE, adjust in your audio editing software before re-uploading to the simulator.
+| Symptom                          | Likely cause                                    | Fix                                                       |
+| -------------------------------- | ----------------------------------------------- | --------------------------------------------------------- |
+| Pyodide takes very long to load  | First-run download of the WASM runtime          | Wait; subsequent exports are faster                       |
+| Export button is greyed out      | Show is empty (no signal blocks)                | Add at least one signal block before exporting            |
+| Validation badge shows FAIL      | BMC encoding error or bad signal timing         | File a bug; include the downloaded WAV as an attachment   |
+| "Export .rshw" stays disabled    | Validation not yet run, or result is FAIL       | Upload a WAV and pass validation first                    |
+| .rshw does not appear in SPTE    | File copied to wrong folder                     | Check SPTE documentation for the correct showtapes path   |

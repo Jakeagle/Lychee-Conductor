@@ -1,89 +1,206 @@
-# HTML UI — index.html and editor.html
+# HTML UI — index.html
 
-The simulator has two HTML entry points:
+As of v3, the entire application lives in a single HTML file:
 
-| File          | Purpose                                                                       |
-| ------------- | ----------------------------------------------------------------------------- |
-| `index.html`  | Main application shell — audio upload, playback, export                       |
-| `editor.html` | Manual show editor — drag-and-drop timeline editor for precision choreography |
+| File         | Purpose                                                                                 |
+| ------------ | --------------------------------------------------------------------------------------- |
+| `index.html` | All-in-one show editor, live tester, and export tool — the only page in the application |
+
+> **`editor.html` no longer exists.** It has been retired to `index.legacy.html` for reference only.
+> The old `index.html` (simulator shell) is also gone — the editor replaced it as the main entry point.
 
 ---
 
-## index.html Structure
-
-### Intro Overlay
-
-The page opens with a full-screen video intro (`#intro-overlay`). The user can click anywhere or press any key to skip it. Once skipped:
-
-- The overlay fades out (`intro-hidden` class)
-- `document.body` gets `app-ready` class
-- All `.reveal-stagger` elements animate in sequentially (150ms + 120ms × index stagger)
-
-### Main Layout Sections
+## Overall Page Structure
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│  Header bar                                                          │
-│    Band selector toggle (Munch / Rock-Afire)                         │
-├─────────────────────────────────────────────────────────────────────┤
-│  Left sidebar                │  Main content area                    │
-│    My Shows list             │    Now Playing card                   │
-│    Upload audio button       │    Character monitors (6–7 panels)    │
-│    Band info                 │    Playback controls                  │
-│                              │    Progress bar / time display        │
-├─────────────────────────────────────────────────────────────────────┤
-│  Export panel                                                        │
-│    Export 4-ch WAV button                                            │
-│    Export .rshw button                                               │
-│    Export .cso button                                                │
-│    Signal Visualizer drop zone                                       │
-└─────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────┐
+│  #intro-overlay (video, dismissed on click / any key)             │
+├────────────────────────────────────────────────────────────────────┤
+│  #toolbar                                                          │
+│    [New Show] [Save] [Saved Shows] [Load WAV]                      │
+│    Show title + band badge (ROCK-AFIRE)                            │
+│    [▶ Play] [⏸ Pause] [⏹ Stop] [📌 Snap] [📌 State] [time]      │
+│    [− Zoom Label +]                                                │
+│    [🎭 4ch Tester]  [🎧 Export 4ch WAV]                           │
+├────────────────────────────────────────────────────────────────────┤
+│  #empty-state  (shown when no show is loaded)                      │
+├────────────────────────────────────────────────────────────────────┤
+│  #editor-body  (shown when a show is loaded)                       │
+│    #label-panel   (character / movement row labels, fixed left)    │
+│    #timeline-wrap (ruler canvas + scrollable tracks)               │
+│       #ruler-canvas                                                │
+│       #tracks-container                                            │
+│          #playhead  #drag-preview  #snap-line  #select-rect        │
+│          .char-group + .movement-row rows                          │
+│          .state-block elements                                     │
+├────────────────────────────────────────────────────────────────────┤
+│  #help-bar  (keyboard shortcut hints)                              │
+├────────────────────────────────────────────────────────────────────┤
+│  #status-bar                                                       │
+└────────────────────────────────────────────────────────────────────┘
 ```
 
-### Python Modal (`#py-modal`)
+---
 
-A full-screen progress overlay that appears while Pyodide is running. Contains:
+## Toolbar Groups
 
-- Title text (`#py-modal-title`)
-- Status message (`#py-modal-msg`)
-- Progress bar (`#py-modal-bar`)
+### Left — file operations
 
-Controlled entirely by the `pyModal` IIFE in `app.js`. Never shown unless a Python operation is in progress.
+| Control               | Action                                                |
+| --------------------- | ----------------------------------------------------- |
+| **✚ New Show**        | Opens `#new-show-overlay`; creates a blank `showData` |
+| **💾 Save**           | Saves `showData` to `localStorage` (also Ctrl+S)      |
+| **📁 Saved Shows**    | Opens `#saved-shows-overlay`                          |
+| **🎵 Load WAV** label | File picker; decodes WAV into `audioBuffer`           |
 
-### Character Monitor Panels
+### Centre — title area
 
-Each character gets a monitor panel (`#monitor-rolfe`, `#monitor-fatz`, etc.). Each panel shows:
+`#show-title` and `#band-badge`. Only Rock-Afire Explosion is supported in v3; Munch's Make Believe Band has been deprecated.
 
-- Character name
-- A small LED/activity grid showing which movements are currently active
-- Real-time signal state (signals lit = actuator on)
+### Transport
 
-Panels are generated dynamically in `app.js` based on `BAND_CONFIG[currentBand].characters`.
+| Control           | Action                                                         |
+| ----------------- | -------------------------------------------------------------- |
+| ▶ Play            | Start timeline preview via `requestAnimationFrame`             |
+| ⏸ Pause           | Pause at current position                                      |
+| ⏹ Stop            | Stop and rewind to frame 0                                     |
+| 📌 Snap (toggle)  | Snap new blocks to the BPM beat grid                           |
+| 📌 State (toggle) | State-block mode — drag a row after a block to add hold events |
+| `#time-display`   | Shows `m:ss.sss / F<frame>`                                    |
+
+### Zoom
+
+`−` / `+` adjust pixels-per-frame. Current zoom shown in `#zoom-label`.
+
+### Export
+
+| Button                | Action                                                                            |
+| --------------------- | --------------------------------------------------------------------------------- |
+| **🎭 4ch Tester**     | Opens `#tester-overlay`                                                           |
+| **🎧 Export 4ch WAV** | Runs Python SGM → downloads `<title>_broadcast.wav`; disabled until WAV is loaded |
 
 ---
 
-## editor.html Structure
+## Piano Roll Editor
 
-The manual editor is a separate page for users who want fine-grained control over the show timeline rather than auto-generation.
+### Label Panel (`#label-panel`)
 
-### Features
+Fixed-width (200 px) left column. Scrolls vertically in sync with `#timeline-wrap`. One header per character group, one label per movement row.
 
-- **Timeline grid**: Horizontal axis = time, vertical axis = characters/movements
-- **Drag to draw**: Click and drag on any row to create an on-event; release to create the matching off-event
-- **JSON import/export**: Load and save `.cybershow.json` files directly
-- **Preview playback**: Runs the show in the simulator preview without leaving the editor
+### Timeline (`#timeline-wrap`)
 
-### Relationship to app.js
+Scrollable both horizontally and vertically. Contains:
 
-The editor saves its timeline to `localStorage` in the same `.cybershow.json` format that `show-builder.js` and the SAM module produce. This means any manually-edited show can be exported using the exact same pipeline as an auto-generated show.
+- **`#ruler-canvas`** — time ruler; click anywhere to seek the playhead.
+- **`#tracks-container`** — all rows and blocks:
+  - **`#playhead`** — red vertical line tracking current time.
+  - **`.state-block`** — coloured ON/OFF block; drag to create, resize by edges, Delete to remove.
+  - **`#drag-preview`** — ghost rectangle while drawing a new block.
+  - **`#snap-line`** — cyan vertical indicator when snapping is active.
+  - **`#select-rect`** — marquee drag-selection rectangle.
+
+### Keyboard shortcuts
+
+| Key              | Action                               |
+| ---------------- | ------------------------------------ |
+| Space            | Play / Pause                         |
+| S                | Toggle snap                          |
+| T                | Toggle state-block mode              |
+| Delete           | Delete selected blocks               |
+| Ctrl+C / V / D   | Copy / Paste at playhead / Duplicate |
+| Ctrl+Z / Y       | Undo / Redo                          |
+| Ctrl+Drag        | Marquee select                       |
+| Ctrl+Click block | Add to selection                     |
+| Shift+Drag       | Bypass snap                          |
 
 ---
 
-## Styling — styles.css
+## Modals
 
-All styling is in a single flat CSS file. Key design decisions:
+### New Show (`#new-show-overlay`)
 
-- **Dark theme throughout** — easier on the eyes during late-night show programming
-- **Responsive layouts** via CSS Grid and Flexbox — usable on both laptops and large monitor displays
-- **CSS custom properties** for brand colours (green accent, dark background)
-- **No external CSS framework** — keeps the project dependency-free
+Centred modal with title field, duration (minutes + seconds), and Create / Cancel buttons. On Create: blank `showData` is built from `CHARACTER_MOVEMENTS` for all nine RAE characters.
+
+### Saved Shows (`#saved-shows-overlay`)
+
+Lists shows in `localStorage`. Each entry has Load and Delete buttons. Shows are serialised `showData` JSON blobs.
+
+> **There is no `.cybershow.json` file export.** Shows persist only in `localStorage`. Always export a 4ch WAV or `.rshw` to preserve work externally.
+
+---
+
+## 4ch Tester Modal (`#tester-overlay`)
+
+The tester serves two related but distinct purposes.
+
+### Live preview mode
+
+When the modal opens without a 4ch WAV loaded it runs in **live mode**:
+
+- `_tBuildLiveStage()` reads `showData` and builds one `.tester-character` card per RAE character.
+- Each card has a row per movement (`CHARACTER_MOVEMENTS[charName].movements`), each with a small LED dot.
+- Pressing Play drives a `requestAnimationFrame` tick loop clocked by **`performance.now()`** (not `AudioContext.currentTime`, which browser auto-suspend can freeze).
+- Events from `_tLiveEvents` (sorted `{timeSec, charName, movKey, on}` entries from `showData`) advance via `_tLiveEventIdx`; matching LEDs toggle `.active`.
+- `audioBuffer` (song loaded via Load WAV) plays simultaneously through Web Audio. Play also works without a song — visualization runs in silence.
+- `_tCtx.resume()` is called before audio start to unblock a browser-suspended AudioContext.
+
+### 4ch WAV validation and `.rshw` export
+
+The **Validate for export** row at the bottom:
+
+| Control               | Purpose                                                      |
+| --------------------- | ------------------------------------------------------------ |
+| **📂 Upload 4ch WAV** | Loads exported `_broadcast.wav`; switches tester to 4ch mode |
+| Validation badge      | **NOT VALIDATED** → **PASS** or **FAIL** after SViz runs     |
+| **📼 Export .rshw**   | Only enabled when `_tValidated === true` (badge = PASS)      |
+
+In 4ch mode, the audio graph plays `_tBuf` (the uploaded WAV) and the LED visualization is driven from the decoded `arena._4chTimeline` rather than `_tLiveEvents`.
+
+### Transport controls
+
+| Control             | Description                                                             |
+| ------------------- | ----------------------------------------------------------------------- |
+| Play / Pause / Stop | Standard; Stop rewinds to t=0 and calls `_tLiveSeekTo(0)`               |
+| `#tester-progress`  | Scrub bar; `input` event calls `_tLiveSeekTo(newTime)` then `_tStart()` |
+| `#tester-time`      | `mm:ss / mm:ss`                                                         |
+| 🎵 Music slider     | `_tMusicVol`; GainNode on music channels                                |
+| 📡 Signals slider   | `_tSigVol`; GainNode on signal channels (audible in 4ch mode only)      |
+
+### Key tester state variables
+
+| Variable         | Meaning                                                          |
+| ---------------- | ---------------------------------------------------------------- | --- | ------------------------------------------------ |
+| `_tBuf`          | `AudioBuffer` of 4ch WAV. `null` = live mode.                    |
+| `_tRaw`          | Raw `Uint8Array` bytes of 4ch WAV used for `.rshw` assembly.     |
+| `_tPlayPerf`     | `performance.now()/1000` at play-start minus offset (viz clock). |
+| `_tCurTime`      | Current playhead in seconds.                                     |
+| `_tLiveEvents`   | Sorted `{timeSec, charName, movKey, on}` from `showData`.        |
+| `_tLiveEventIdx` | Pointer into `_tLiveEvents`; advances during tick.               |
+| `_tLiveState`    | `"charName                                                       |     | movKey"`→`bool`snapshot; used by`\_tLiveSeekTo`. |
+| `_tLiveDur`      | Show length in seconds (`frameToMs(totalFrames)/1000`).          |
+| `_tValidated`    | `true` after SViz validation returns PASS.                       |
+
+---
+
+## Python Progress Modal (`#ed-py-modal`)
+
+A full-screen spinner overlay while Pyodide runs (WAV export or validation). Controlled by the `_edModal` helper object inside the SCME IIFE. Hidden via the `hidden` HTML attribute.
+
+---
+
+## Styling
+
+All CSS is inline in `index.html` — no external stylesheet. Key CSS custom properties:
+
+| Property    | Value / Role                |
+| ----------- | --------------------------- |
+| `--bg`      | `#0d0d1a` — page background |
+| `--panel`   | Panel background            |
+| `--toolbar` | Toolbar background          |
+| `--border`  | Border colour               |
+| `--text`    | Primary text                |
+| `--muted`   | Dimmed / secondary text     |
+| `--ruler-h` | `44px` ruler height         |
+| `--label-w` | `200px` label panel width   |
+| `--row-h`   | `22px` movement row height  |

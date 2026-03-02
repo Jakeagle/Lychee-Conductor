@@ -1,21 +1,27 @@
-# app.js — Central Application Coordinator
+# app.js — Legacy Module (v2 and earlier)
 
-`app.js` is the largest single file (~2,000 lines) and acts as the glue between all other modules. It owns:
+> **`app.js` is not loaded by the current application.** In v3, all editor logic has been inlined into `index.html` as a self-contained SCME bridge IIFE. `app.js` remains in the repo as a reference for the old simulator-shell architecture but has no effect on the running application.
+>
+> This page documents the old v2 architecture for historical reference. For the current architecture see [html-ui.md](html-ui.md).
+
+---
+
+`app.js` was the central coordinator of the v2 application shell. It owned:
 
 - Application startup and intro animation
-- Band / character configuration
-- Playback engine (scheduling, Web Audio API sync)
+- Band / character configuration (Rock-Afire + Munch's Make Believe Band)
+- Playback engine (event scheduling, Web Audio API sync)
 - Show import and export (`.cybershow.json`, 4-channel WAV, `.rshw`, `.cso`)
 - Python progress modal
 - UI event listeners
 
 ---
 
-## Configuration Objects
+## v2 Reference — Configuration Objects
 
 ### `BAND_CONFIG`
 
-Defines the two supported animatronic bands and their characters:
+Defined the two supported animatronic bands and their characters:
 
 ```
 "munch" → Chuck E. Cheese, Munch, Helen Henny, Jasper T. Jowls, Pasqually

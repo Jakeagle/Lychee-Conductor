@@ -1,130 +1,78 @@
-# Manual Editing — Fine-Tuning Your Show Timeline
+# Manual Editing
 
-The auto-generated choreography from SAM is a good starting point, but it works from audio analysis alone — it doesn't know the lyrics, the story, or your artistic intent. The manual editor lets you add, remove, and adjust movements with precision.
+This guide covers advanced editing operations in the Cyberstar Simulator piano roll editor.
 
 ---
 
 ## Opening the Editor
 
-From the main simulator page:
+The editor **is** `index.html`. Open it directly in a browser — there is no separate editor page.
 
-- Click **Edit Show** on the Now Playing card, or
-- Click the ✏️ icon on any saved show in the sidebar, or
-- Navigate directly to `editor.html`
+> In v2 the editor was a separate `editor.html` page. That file has been retired and renamed `index.legacy.html` for reference only.
 
 ---
 
-## Editor Layout
+## Timeline Controls
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│  Toolbar: [Load JSON] [Save JSON] [Preview] [Export] [Undo] [Redo]  │
-├─────────┬───────────────────────────────────────────────────────────┤
-│ Track   │  Timeline (scrollable, zoomable)                          │
-│ labels  │  ←──────────── time ────────────────────────────────────→ │
-│         │                                                           │
-│ Rolfe   │  ██████  ████   ██                                       │
-│  mouth  │                                                           │
-│  ear_L  │     ██████         ████████                              │
-│         │                                                           │
-│ Fatz    │                                                           │
-│  mouth  │  ██   ██   ██   ██   ██   ██                            │
-│         │                                                           │
-│ ...     │                                                           │
-└─────────┴───────────────────────────────────────────────────────────┘
-│  Zoom: [─────●────────]  │  BPM: 84  │  Snap: 1 beat              │
-└─────────────────────────────────────────────────────────────────────┘
-```
+### Zoom
 
-Each **row** is one movement of one character. Each **coloured block** represents a time window when that actuator is ON.
+Use the **Zoom** control in the toolbar (or scroll-wheel over the timeline) to zoom in and out on the frame axis. Zooming in gives finer control for placing short signal pulses.
+
+### Snap
+
+Toggle **"Snap"** to force block edges to snap to frame boundaries. Useful for ensuring signal edges align exactly with frame transitions.
+
+### State Mode
+
+Toggle **"State"** to switch between:
+
+- **State mode ON** — blocks represent sustained "on" states; release = block end
+- **State mode OFF** — each click creates a momentary pulse
 
 ---
 
-## Basic Editing Operations
+## Keyboard Shortcuts
 
-### Add a Movement
-
-Click and drag on an empty area of a row. Release to finish. The block's length is the duration the actuator stays on.
-
-### Delete a Movement
-
-Right-click on a block → Delete, or select the block and press Delete.
-
-### Move a Movement
-
-Click and drag an existing block left or right along its row.
-
-### Resize a Movement
-
-Drag the left or right edge of a block to change its start or end time.
-
-### Snap to Beat Grid
-
-When "Snap: 1 beat" is active, blocks snap to the nearest beat boundary (derived from the BPM SAM detected). You can also snap to half-beats, quarter-beats, or turn snapping off for free positioning.
+| Key          | Action                              |
+| ------------ | ----------------------------------- |
+| Space        | Play / Pause                        |
+| Escape       | Stop                                |
+| Delete       | Delete selected block               |
+| Ctrl+Z       | Undo                                |
+| Ctrl+Y       | Redo                                |
+| Ctrl+S       | Save                                |
+| Arrow keys   | Nudge selected block ±1 frame       |
+| Shift+Arrows | Nudge selected block ±10 frames     |
 
 ---
 
-## Understanding the Grid
+## Editing Blocks
 
-The timeline is displayed at `fps = 50` internally (one column = 20ms). The horizontal axis shows time in `mm:ss.mmm` format.
-
-At the bottom, a BPM grid overlay shows beat markers. If your show BPM is correct, the beats should align with the onsets in the music — this is a good visual guide for placing mouth movements.
-
----
-
-## Recommended Editing Workflow
-
-### For Vocal Movements (mouth, head_left/right)
-
-1. Listen to the show with preview playback running
-2. Note timestamps where vocal phrases start and end
-3. In the editor, add mouth ON blocks aligned with phrase starts, OFF blocks at phrase ends
-4. Keep blocks 3–8 frames long for natural movement rhythm (too short = choppy, too long = frozen open)
-
-### For Instrumental Movements (arm raises, body lean)
-
-1. Use the beat grid — arm raises typically fire on downbeats
-2. Lead musicians raise arms during solos; support characters respond to the beat
-3. Avoid firing the same movement on every beat — leave space for contrast
-
-### For Percussion (Dook LaRue)
-
-1. Bass drum fires on beats 1 and 3 of a 4/4 bar (the "kick")
-2. Hi-hat fires on beats 2 and 4 (the "snare" downbeats)
-3. These should be very short (1–2 frames) to feel punchy
-
-### For Eye and Eyelid Movements
-
-- Blinks: very short ON+OFF pairs (2–3 frames ON)
-- Sustained eye direction changes: 10–30 frames ON while looking at something
-- Use sparingly — constant eye motion looks mechanical
+| Interaction                          | Result                              |
+| ------------------------------------ | ----------------------------------- |
+| Click + drag on empty timeline area  | Create new block                    |
+| Click on existing block              | Select it                           |
+| Drag selected block                  | Move it                             |
+| Drag block left or right edge        | Resize (change start/end frame)     |
+| Right-click block                    | Context menu (delete, properties)   |
+| Delete key (block selected)          | Remove block                        |
 
 ---
 
-## Importing and Exporting JSON
+## Working with Multiple Characters
 
-The editor works entirely with `.cybershow.json` files:
-
-- **Load JSON**: Opens a `.cybershow.json` file from disk and populates the timeline
-- **Save JSON**: Exports the current timeline to a `.cybershow.json` file on disk
-
-This is the recommended workflow for collaborative editing — share the JSON file, each person edits their section, merge manually.
+Each character's rows are collapsed by default showing just the character name. Click a character name in the label panel to expand/collapse its rows and see individual movements.
 
 ---
 
-## Undo / Redo
+## Saving and Loading
 
-The editor maintains a full undo history for the current session. Standard keyboard shortcuts:
-
-- `Ctrl+Z` — Undo
-- `Ctrl+Shift+Z` or `Ctrl+Y` — Redo
-
-History is lost when you close the browser tab.
+- **Save** (Ctrl+S or toolbar) — writes `showData` to `localStorage`.
+- **Saved Shows** — opens a picker for all locally saved shows.
+- To share or back up a show, export as 4ch WAV and retain the associated `.cybershow.json` sidecar.
 
 ---
 
-## Previewing from the Editor
+## Importing an Existing Show
 
-Click **Preview** in the toolbar to load your current timeline into the simulator's playback engine and play it. The editor stays open so you can switch back and continue editing.
-
-The preview uses the same audio you uploaded in the main simulator. Make sure you uploaded audio before opening the editor, or preview will play back the signals without music.
+If you have a `.cybershow.json` file from a previous session, use the **"Load"** option in the Saved Shows dialog (or drag-and-drop onto the timeline area) to import it.
