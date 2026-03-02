@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cyberstar Analog Signal Simulator</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <!-- Cyberstar Intro Overlay -->
+    <div id="intro-overlay" class="intro-overlay" style="cursor: pointer">
+      <video
+        id="intro-video"
+        class="intro-video"
+        src="Cyberstar Intro (HD).mp4"
+        playsinline
+      ></video>
+      <div id="intro-prompt" class="intro-prompt">
+        <div class="power-icon">⏻</div>
+        <p>POWER ON CYBERSTAR</p>
+      </div>
+      <div id="skip-intro" class="skip-intro" style="display: none">
+        Click to skip
+      </div>
+    </div>
+
+    <div class="container app-content" id="app-container">
+      <header class="reveal-stagger">
+        <h1>🎬 Cyberstar Online</h1>
+        <p class="subtitle">
+          Biphase Mark Code Animatronic Control System Emulator
+        </p>
+        <p class="subtitle-info">
+          Recreates the analog control signals from Creative Engineering's
+          Cyberstar systems using digital BMC encoding
+        </p>
+
+        <div class="band-selector">
+          <label for="band-select">Select Band:</label>
+          <select id="band-select">
+            <option value="munch">🎸 Munch's Make Believe Band</option>
+            <option value="rock">🔥 The Rock - Afire Explosion</option>
+          </select>
+          <button id="toggle-stage-btn" class="btn btn-primary btn-stage">
+            🎭 Show Stage View
+          </button>
+        </div>
+      </header>
+
+      <main>
+        <!-- Show Tape Player Section -->
+        <section class="control-panel reveal-stagger">
+          <h2>Show Tape Player</h2>
+
+          <div class="tape-selector">
+            <label for="showtape-select">Select Showtape:</label>
+            <select id="showtape-select">
+              <option value="">-- Choose a showtape --</option>
+              <option value="welcome-sequence">Welcome Sequence</option>
+              <option value="action-demo">Action Demo</option>
+              <option value="full-show">Full Show Routine</option>
+              <option value="test-patterns">Test Patterns</option>
+            </select>
+          </div>
+
+          <div class="player-controls">
+            <button id="play-btn" class="btn btn-primary">▶ Play</button>
+            <button id="pause-btn" class="btn">⏸ Pause</button>
+            <button id="stop-btn" class="btn">⏹ Stop</button>
+            <button
+              id="export-4ch-btn"
+              class="btn"
+              title="Render and download a 4-channel WAV (Music L, Music R, TD BMC, BD BMC)"
+            >
+              🎚️ Export 4-ch WAV
+            </button>
+            <button
+              id="export-cso-btn"
+              class="btn"
+              title="Export a .cso Cyberstar Show Object for RR-Engine (requires 4-ch WAV to be exported first)"
+              onclick="exportCsoFromCurrentShow()"
+            >
+              🎮 Export as CSO
+            </button>
+            <span
+              id="export-wav-status"
+              style="font-size: 0.82em; opacity: 0.75; margin-left: 8px"
+            ></span>
+            <span
+              id="cso-export-status"
+              style="font-size: 0.82em; opacity: 0.75; margin-left: 8px"
+            ></span>
+          </div>
+
+          <div class="playback-info">
+            <div class="progress-container">
+              <label for="progress-bar">Progress:</label>
+              <input
+                type="range"
+                id="progress-bar"
+                min="0"
+                max="100"
+                value="0"
+              />
+              <span id="time-display">00:00 / 00:00</span>
+            </div>
+          </div>
+
+          <div class="playback-controls">
+            <label for="speed-control">Playback Speed:</label>
+            <select id="speed-control">
+              <option value="0.5">0.5x</option>
+              <option value="1" selected>1.0x</option>
+              <option value="1.5">1.5x</option>
+              <option value="2">2.0x</option>
+            </select>
+
+            <label for="volume-control">Volume:</label>
+            <input
+              type="range"
+              id="volume-control"
+              min="0"
+              max="100"
+              value="70"
+            />
+            <span id="volume-display">70%</span>
+          </div>
+
+          <div class="tape-info">
+            <p id="tape-description">
+              Select a showtape to view its description
+            </p>
+            <p class="bmc-info">
+              💡 This simulator uses Biphase Mark Code (BMC) encoding - a
+              digital data format where bit transitions create the control
+              signal. Listen carefully to hear the characteristic click patterns
+              of the BMC waveform!
+            </p>
+          </div>
+        </section>
+
+        <!-- Custom Show Builder Section -->
+        <section class="control-panel custom-builder-panel reveal-stagger">
+          <h2>🎼 Custom Show Builder</h2>
+          <p class="builder-info">
+            Upload any song — the simulator detects beats and generates a
+            choreographed showtape for your chosen band. The showtape is saved
+            in your browser and appears in the player above.
+          </p>
+
+          <div class="builder-form">
+            <div class="builder-row">
+              <label for="custom-wav-input" class="btn btn-file"
+                >📂 Choose Song</label
+              >
+              <input
+                type="file"
+                id="custom-wav-input"
+                accept=".wav,.mp3,.ogg,.flac"
+                style="display: none"
+              />
+              <span id="custom-wav-name" class="file-name-display"
+                >No file chosen</span
+              >
+            </div>
+
+            <div class="builder-row">
+              <label for="custom-show-title">Show Title:</label>
+              <input
+                type="text"
+                id="custom-show-title"
+                class="builder-input"
+                placeholder="My Custom Show"
+                maxlength="60"
+              />
+            </div>
+
+            <div class="builder-row">
+              <label for="custom-show-band">Band:</label>
+              <select id="custom-show-band" class="builder-select">
+                <option value="munch">🎸 Munch's Make Believe Band</option>
+                <option value="rock">🔥 Rock Afire Explosion</option>
+              </select>
+            </div>
+
+            <div class="builder-row builder-row-action">
+              <button id="generate-show-btn" class="btn btn-primary" disabled>
+                ⚙️ Generate Show
+              </button>
+              <span id="generate-status" class="generate-status"></span>
+            </div>
+          </div>
+
+          <div
+            class="saved-shows-header"
+            id="saved-shows-header"
+            style="display: none"
+          >
+            <h3>💾 Saved Custom Shows</h3>
+          </div>
+          <div id="custom-show-list" class="custom-show-list"></div>
+
+          <!-- Show Import -->
+          <div class="show-import-panel">
+            <h3>📥 Import Show File</h3>
+            <p class="builder-info">
+              Import a previously exported <code>.cybershow.json</code> file.
+              Edit the JSON to refine timings, add notes, or hand-craft new cues
+              — then import it back to play it.
+            </p>
+            <div class="builder-row">
+              <label for="import-show-input" class="btn btn-file"
+                >📂 Choose .cybershow.json</label
+              >
+              <input
+                type="file"
+                id="import-show-input"
+                accept=".json,.cybershow.json"
+                style="display: none"
+              />
+              <span id="import-show-name" class="file-name-display"
+                >No file chosen</span
+              >
+            </div>
+            <div class="builder-row">
+              <label for="import-wav-input" class="btn btn-file"
+                >🎵 Choose Song WAV</label
+              >
+              <input
+                type="file"
+                id="import-wav-input"
+                accept=".wav,.mp3,.ogg,.flac"
+                style="display: none"
+              />
+              <span id="import-wav-name" class="file-name-display"
+                >Optional — required for playback &amp; 4-ch export</span
+              >
+            </div>
+            <div class="builder-row builder-row-action">
+              <button id="import-show-btn" class="btn btn-primary" disabled>
+                📥 Import Show
+              </button>
+              <span id="import-show-status" class="generate-status"></span>
+            </div>
+          </div>
+
+          <!-- Timeline Editor link -->
+          <div class="show-editor-link-panel">
+            <h3>🎬 Timeline Editor</h3>
+            <p class="builder-info">
+              Open the visual show editor to view, refine, and hand-place
+              signals on a frame-accurate timeline synced to your WAV file.
+            </p>
+            <a
+              href="index.html"
+              target="_blank"
+              class="btn btn-primary btn-editor-launch"
+            >
+              🎬 Open Show Editor
+            </a>
+          </div>
+        </section>
+
+        <!-- CSO File Previewer (SViz) -->
+        <section class="control-panel sviz-panel reveal-stagger">
+          <h2>📡 CSO File Previewer</h2>
+          <p class="builder-info">
+            Upload a Cyberstar Online 4-channel WAV file. The file will be
+            verified against hardware specifications before playback is enabled.
+          </p>
+
+          <!-- Upload row -->
+          <div class="builder-row">
+            <button id="sviz-upload-btn" class="btn btn-primary">
+              📂 Load CSO WAV
+            </button>
+            <input
+              type="file"
+              id="sviz-file-input"
+              accept=".wav"
+              style="display: none"
+            />
+            <span id="sviz-file-name" class="file-name-display"
+              >No file chosen</span
+            >
+          </div>
+
+          <!-- Status -->
+          <div id="sviz-status" class="sviz-status sviz-status-info"></div>
+
+          <!-- Stats bar -->
+          <div id="sviz-stats" class="sviz-stats"></div>
+
+          <!-- Verify panel -->
+          <div
+            id="sviz-verify-panel"
+            class="sviz-verify-panel"
+            style="display: none"
+          >
+            <div id="sviz-verdict" class="sviz-verdict"></div>
+            <ul id="sviz-reasons" class="sviz-reasons"></ul>
+          </div>
+
+          <!-- Disclaimer -->
+          <p id="sviz-disclaimer" class="sviz-disclaimer" style="display: none">
+            ⚠️ Audio playback is a browser representation only. The browser
+            resamples to its hardware rate (typically 48 kHz). Signal timing
+            derived from BMC decode is accurate; audio fidelity is not
+            guaranteed.
+          </p>
+
+          <!-- Player panel -->
+          <div
+            id="sviz-player-panel"
+            class="sviz-player-panel"
+            style="display: none"
+          >
+            <canvas
+              id="sviz-waveform"
+              class="sviz-waveform"
+              height="60"
+            ></canvas>
+            <div class="sviz-player-controls">
+              <button id="sviz-play-btn" class="btn btn-primary">▶ Play</button>
+              <button id="sviz-pause-btn" class="btn" disabled>⏸ Pause</button>
+              <button id="sviz-stop-btn" class="btn">⏹ Stop</button>
+              <button id="sviz-stage-btn" class="btn">🎭 Stage View</button>
+              <input
+                id="sviz-progress"
+                type="range"
+                min="0"
+                max="100"
+                value="0"
+                class="sviz-progress"
+              />
+              <span id="sviz-time" class="sviz-time">00:00 / 00:00</span>
+            </div>
+          </div>
+
+          <!-- Export row -->
+          <div class="sviz-export-row">
+            <span class="sviz-export-label">💾 Export:</span>
+            <button id="sviz-export-wav-btn" class="btn sviz-export-btn">
+              🔊 4-Channel WAV
+            </button>
+            <button
+              id="sviz-export-cso-btn"
+              class="btn sviz-export-btn sviz-export-btn-cso"
+            >
+              📶 4-Channel .CSO
+            </button>
+            <button
+              id="sviz-export-rshw-btn"
+              class="btn sviz-export-btn sviz-export-btn-rshw"
+            >
+              📼 Export .rshw
+            </button>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Stage View Modal -->
+    <div id="stage-modal" class="modal">
+      <div class="modal-content stage-modal-content">
+        <div class="modal-header">
+          <h2>🎭 Cyberstar Animatronic Stage</h2>
+          <button id="close-stage-btn" class="close-btn">&times;</button>
+        </div>
+        <div class="stage-info">
+          <p>
+            Real-time visualization of the Biphase Mark Code control bits acting
+            on the show floor machines.
+          </p>
+        </div>
+        <div id="stage-arena" class="stage-arena">
+          <!-- Characters dynamically rendered here -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Python progress modal -->
+    <div id="py-modal" class="py-modal-overlay" hidden>
+      <div class="py-modal-box">
+        <div class="py-modal-spinner"></div>
+        <p id="py-modal-title" class="py-modal-title">Working…</p>
+        <p id="py-modal-msg" class="py-modal-msg"></p>
+        <div class="py-modal-track">
+          <div id="py-modal-bar" class="py-modal-bar" style="width: 0%"></div>
+        </div>
+      </div>
+    </div>
+
+    <script src="cyberstar-signals.js"></script>
+    <script src="character-movements.js"></script>
+    <script src="showtapes.js"></script>
+    <script src="show-builder.js"></script>
+    <script src="app.js"></script>
+    <script src="signal-visualizer.js"></script>
+    <script src="cso-exporter.js"></script>
+  </body>
+</html>

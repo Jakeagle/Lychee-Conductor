@@ -3,8 +3,1080 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Cyberstar Analog Signal Simulator</title>
-    <link rel="stylesheet" href="styles.css" />
+    <title>Cyberstar Show Editor</title>
+    <script src="character-movements.js"></script>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      :root {
+        --bg: #0d0d1a;
+        --panel: #141428;
+        --toolbar: #1a1a2e;
+        --border: #2a2a44;
+        --text: #c8c8e0;
+        --muted: #666680;
+        --ruler-bg: #111122;
+        --row-bg: #12121f;
+        --row-alt: #0f0f1c;
+        --row-hover: #1a1a30;
+        --sel: #ffffff;
+        --ruler-h: 44px;
+        --label-w: 200px;
+        --char-h: 26px;
+        --row-h: 22px;
+      }
+
+      html,
+      body {
+        height: 100%;
+        background: var(--bg);
+        color: var(--text);
+        font-family: "Segoe UI", system-ui, sans-serif;
+        font-size: 13px;
+        overflow: hidden;
+      }
+
+      /* ── TOOLBAR ─────────────────────────────────────────────── */
+      #toolbar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0 12px;
+        height: 46px;
+        background: var(--toolbar);
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+        flex-wrap: nowrap;
+        overflow: hidden;
+      }
+
+      .tb-group {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        border-right: 1px solid var(--border);
+        padding-right: 10px;
+      }
+      .tb-group:last-child {
+        border-right: none;
+      }
+
+      .tb-title {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        padding: 0 8px;
+      }
+      #show-title {
+        font-size: 0.95em;
+        font-weight: 600;
+        color: #ddeeff;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .band-badge {
+        font-size: 0.72em;
+        padding: 2px 7px;
+        border-radius: 10px;
+        font-weight: 700;
+        letter-spacing: 1px;
+        flex-shrink: 0;
+      }
+      .band-rock {
+        background: rgba(0, 200, 255, 0.15);
+        color: #00c8ff;
+        border: 1px solid #00c8ff44;
+      }
+
+      input[type="file"] {
+        display: none;
+      }
+
+      .tb-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 5px 10px;
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text);
+        font-size: 0.82em;
+        cursor: pointer;
+        text-decoration: none;
+        white-space: nowrap;
+        transition:
+          background 0.15s,
+          border-color 0.15s;
+      }
+      .tb-btn:hover {
+        background: rgba(255, 255, 255, 0.09);
+        border-color: #555;
+      }
+      .tb-btn:disabled {
+        opacity: 0.4;
+        cursor: default;
+        pointer-events: none;
+      }
+      .tb-btn-green {
+        border-color: rgba(0, 200, 100, 0.4);
+        color: #00d464;
+        background: rgba(0, 200, 100, 0.07);
+      }
+      .tb-btn-green:hover {
+        background: rgba(0, 200, 100, 0.15);
+        border-color: rgba(0, 200, 100, 0.7);
+      }
+
+      .time-display {
+        font-family: "Courier New", monospace;
+        font-size: 0.82em;
+        color: #88aacc;
+        background: rgba(0, 0, 0, 0.3);
+        padding: 4px 10px;
+        border-radius: 4px;
+        border: 1px solid var(--border);
+        min-width: 160px;
+        text-align: center;
+      }
+
+      #zoom-label {
+        font-family: monospace;
+        font-size: 0.8em;
+        color: var(--muted);
+        min-width: 40px;
+        text-align: center;
+      }
+
+      /* ── APP BODY ─────────────────────────────────────────────── */
+      #app {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
+
+      /* ── EMPTY STATE ─────────────────────────────────────────── */
+      #empty-state {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .empty-inner {
+        text-align: center;
+        max-width: 420px;
+      }
+      .empty-icon {
+        font-size: 4em;
+        margin-bottom: 16px;
+      }
+      .empty-inner h2 {
+        font-size: 1.4em;
+        color: #ddeeff;
+        margin-bottom: 10px;
+      }
+      .empty-inner p {
+        color: var(--muted);
+        line-height: 1.6;
+        margin-bottom: 8px;
+      }
+      .empty-inner .tb-btn {
+        margin-top: 20px;
+        font-size: 0.92em;
+        padding: 8px 20px;
+      }
+
+      /* ── EDITOR BODY ─────────────────────────────────────────── */
+      #editor-body {
+        flex: 1;
+        display: none;
+        flex-direction: row;
+        overflow: hidden;
+        min-height: 0;
+      }
+
+      /* ── LABEL PANEL ─────────────────────────────────────────── */
+      #label-panel {
+        width: var(--label-w);
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        border-right: 1px solid var(--border);
+        background: var(--panel);
+        overflow: hidden;
+      }
+      #label-corner {
+        height: var(--ruler-h);
+        flex-shrink: 0;
+        background: var(--ruler-bg);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: flex-end;
+        padding: 0 10px 6px;
+      }
+      #label-corner span {
+        font-size: 0.72em;
+        color: var(--muted);
+        letter-spacing: 1px;
+        text-transform: uppercase;
+      }
+      #label-scroll {
+        flex: 1;
+        overflow: hidden;
+      }
+      .lbl-char-header {
+        display: flex;
+        align-items: center;
+        padding: 0 10px;
+        border-bottom: 1px solid;
+        font-size: 0.8em;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        overflow: hidden;
+        height: var(--char-h);
+        flex-shrink: 0;
+      }
+      .lbl-move-row {
+        display: flex;
+        align-items: center;
+        padding: 0 10px 0 18px;
+        height: var(--row-h);
+        font-family: "Courier New", monospace;
+        font-size: 0.74em;
+        color: var(--muted);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        background: var(--row-bg);
+      }
+      .lbl-move-row:nth-child(odd) {
+        background: var(--row-alt);
+      }
+
+      /* ── TIMELINE WRAP ───────────────────────────────────────── */
+      #timeline-wrap {
+        flex: 1;
+        overflow: auto;
+        position: relative;
+        min-width: 0;
+      }
+
+      #ruler-canvas {
+        display: block;
+        position: sticky;
+        top: 0;
+        left: 0;
+        z-index: 20;
+        cursor: crosshair;
+      }
+
+      /* ── TRACKS CONTAINER ─────────────────────────────────────── */
+      #tracks-container {
+        position: relative;
+        min-height: 100px;
+      }
+
+      .track-char-header {
+        height: var(--char-h);
+        display: flex;
+        align-items: center;
+        padding: 0 14px;
+        font-size: 0.75em;
+        font-weight: 700;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        border-bottom: 1px solid;
+        position: sticky;
+        left: 0;
+        z-index: 5;
+      }
+
+      .track-row {
+        height: var(--row-h);
+        position: relative;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        background: var(--row-bg);
+        cursor: crosshair;
+        user-select: none;
+      }
+      .track-row:nth-child(odd) {
+        background: var(--row-alt);
+      }
+      .track-row:hover {
+        background: var(--row-hover);
+      }
+
+      .signal-block {
+        position: absolute;
+        top: 3px;
+        height: calc(var(--row-h) - 6px);
+        border-radius: 3px;
+        cursor: grab;
+        border: 1px solid transparent;
+        transition:
+          opacity 0.1s,
+          border-color 0.1s;
+        z-index: 2;
+      }
+      .signal-block:hover {
+        opacity: 1 !important;
+        filter: brightness(1.3);
+      }
+      .signal-block.selected {
+        opacity: 1 !important;
+        border-color: #fff !important;
+        filter: brightness(1.4);
+        box-shadow: 0 0 6px rgba(255, 255, 255, 0.4);
+      }
+      .signal-block.block-dragging {
+        opacity: 0.3 !important;
+        cursor: grabbing;
+      }
+
+      /* ── STATE BLOCKS (hold-position regions) ────────────────── */
+      .state-block {
+        position: absolute;
+        top: 3px;
+        height: calc(var(--row-h) - 6px);
+        border-radius: 3px;
+        cursor: grab;
+        border: 1.5px dashed rgba(255, 255, 255, 0.35);
+        z-index: 2;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.58em;
+        font-weight: 800;
+        letter-spacing: 1.5px;
+        color: rgba(255, 255, 255, 0.6);
+        text-shadow: 0 0 4px rgba(0, 0, 0, 0.9);
+        transition:
+          opacity 0.1s,
+          filter 0.1s;
+      }
+      .state-block:hover {
+        opacity: 1 !important;
+        filter: brightness(1.35);
+      }
+      .state-block.selected {
+        opacity: 1 !important;
+        border-style: solid !important;
+        border-color: #fff !important;
+        filter: brightness(1.4);
+        box-shadow: 0 0 6px rgba(255, 255, 255, 0.4);
+      }
+      .state-block.block-dragging {
+        opacity: 0.3 !important;
+        cursor: grabbing;
+      }
+
+      /* ── DRAG-SELECT RECTANGLE ───────────────────────────────── */
+      #select-rect {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 0;
+        height: 100%;
+        border: 1.5px solid rgba(100, 200, 255, 0.85);
+        background: rgba(100, 200, 255, 0.08);
+        pointer-events: none;
+        display: none;
+        z-index: 12;
+        border-radius: 2px;
+      }
+
+      /* ── SNAP LINE ────────────────────────────────────────────── */
+      #snap-line {
+        position: absolute;
+        top: 0;
+        width: 1px;
+        background: #00ffcc;
+        box-shadow: 0 0 5px #00ffcc88;
+        pointer-events: none;
+        display: none;
+        z-index: 20;
+      }
+
+      /* ── SNAP BUTTON ACTIVE STATE ─────────────────────────────── */
+      .snap-active {
+        border-color: rgba(0, 255, 180, 0.5) !important;
+        color: #00ffb0 !important;
+        background: rgba(0, 255, 160, 0.08) !important;
+      }
+
+      /* ── STATE-MODE BUTTON ACTIVE ─────────────────────────────── */
+      .state-mode-active {
+        border-color: rgba(255, 180, 0, 0.55) !important;
+        color: #ffb400 !important;
+        background: rgba(255, 175, 0, 0.1) !important;
+      }
+
+      /* ── PLAYHEAD ─────────────────────────────────────────────── */
+      #playhead {
+        position: absolute;
+        top: 0;
+        width: 2px;
+        height: 100%;
+        background: #ff4444;
+        pointer-events: none;
+        z-index: 15;
+        will-change: left;
+      }
+      #playhead::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: -4px;
+        border: 5px solid transparent;
+        border-top-color: #ff4444;
+      }
+
+      /* ── DRAG PREVIEW ─────────────────────────────────────────── */
+      #drag-preview {
+        position: absolute;
+        top: 0;
+        height: 16px;
+        background: rgba(255, 255, 255, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.6);
+        border-radius: 3px;
+        pointer-events: none;
+        z-index: 8;
+      }
+
+      /* ── STATUS BAR ───────────────────────────────────────────── */
+      #status-bar {
+        height: 26px;
+        display: flex;
+        align-items: center;
+        padding: 0 14px;
+        background: var(--toolbar);
+        border-top: 1px solid var(--border);
+        font-size: 0.78em;
+        color: var(--muted);
+        flex-shrink: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      /* ── HELP TOOLTIP ─────────────────────────────────────────── */
+      #help-bar {
+        height: 22px;
+        display: flex;
+        align-items: center;
+        padding: 0 14px;
+        background: rgba(0, 0, 0, 0.25);
+        font-size: 0.73em;
+        color: #44445a;
+        gap: 16px;
+        flex-shrink: 0;
+      }
+      #help-bar span {
+        white-space: nowrap;
+      }
+      #help-bar kbd {
+        background: #1e1e32;
+        border: 1px solid #333;
+        border-radius: 3px;
+        padding: 0 4px;
+        font-size: 0.9em;
+        color: #888;
+      }
+
+      /* scrollbar styling */
+      #timeline-wrap::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      #timeline-wrap::-webkit-scrollbar-track {
+        background: #0d0d1a;
+      }
+      #timeline-wrap::-webkit-scrollbar-thumb {
+        background: #2a2a44;
+        border-radius: 4px;
+      }
+      #timeline-wrap::-webkit-scrollbar-thumb:hover {
+        background: #3a3a60;
+      }
+      #timeline-wrap::-webkit-scrollbar-corner {
+        background: #0d0d1a;
+      }
+
+      /* ── NEW SHOW MODAL ──────────────────────────────────────── */
+      #new-show-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.65);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+      }
+      #new-show-overlay.open {
+        display: flex;
+      }
+      #new-show-modal {
+        background: #1a1a2e;
+        border: 1px solid #2a2a44;
+        border-radius: 10px;
+        padding: 28px 32px;
+        width: 380px;
+        max-width: 95vw;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+      }
+      #new-show-modal h3 {
+        font-size: 1.15em;
+        color: #ddeeff;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .ns-field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-bottom: 16px;
+      }
+      .ns-field label {
+        font-size: 0.8em;
+        color: #888899;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+      }
+      .ns-field input,
+      .ns-field select {
+        background: #0d0d1a;
+        border: 1px solid #2a2a44;
+        border-radius: 5px;
+        color: #c8c8e0;
+        padding: 7px 10px;
+        font-size: 0.92em;
+        outline: none;
+        transition: border-color 0.15s;
+      }
+      .ns-field input:focus,
+      .ns-field select:focus {
+        border-color: #00c8ff88;
+      }
+      .ns-dur-row {
+        display: flex;
+        gap: 8px;
+      }
+      .ns-dur-row input {
+        flex: 1;
+        text-align: center;
+      }
+      .ns-dur-sep {
+        align-self: center;
+        color: #666680;
+        font-size: 1.1em;
+      }
+      .ns-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 22px;
+      }
+      .ns-actions button {
+        flex: 1;
+        padding: 8px;
+        border-radius: 5px;
+        border: 1px solid #2a2a44;
+        cursor: pointer;
+        font-size: 0.88em;
+        font-weight: 600;
+      }
+      #ns-create {
+        background: rgba(0, 200, 100, 0.12);
+        border-color: rgba(0, 200, 100, 0.4);
+        color: #00d464;
+      }
+      #ns-create:hover {
+        background: rgba(0, 200, 100, 0.22);
+      }
+      #ns-cancel {
+        background: rgba(255, 255, 255, 0.04);
+        color: #888899;
+      }
+      #ns-cancel:hover {
+        background: rgba(255, 255, 255, 0.09);
+      }
+
+      /* ── 4CH TESTER MODAL ──────────────────────────────────── */
+      #tester-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.75);
+        z-index: 2000;
+        align-items: flex-start;
+        justify-content: center;
+        overflow-y: auto;
+        padding: 20px;
+      }
+      #tester-overlay.open {
+        display: flex;
+      }
+      #tester-modal {
+        background: linear-gradient(180deg, #0a0a1a 0%, #1a1a2e 100%);
+        border: 1px solid #00d4ff;
+        border-radius: 12px;
+        box-shadow: 0 0 50px rgba(0, 212, 255, 0.2);
+        width: 95%;
+        max-width: 1400px;
+        padding: 28px 30px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        margin: auto;
+      }
+      #tester-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid rgba(0, 212, 255, 0.3);
+        padding-bottom: 14px;
+      }
+      #tester-header h2 {
+        font-size: 1.15em;
+        color: #00d4ff;
+        margin: 0;
+      }
+      #tester-close {
+        background: none;
+        border: none;
+        color: #88a;
+        font-size: 30px;
+        cursor: pointer;
+        line-height: 1;
+      }
+      #tester-close:hover {
+        color: #fff;
+      }
+      #tester-arena {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: flex-start;
+        gap: 16px;
+        background: rgba(0, 0, 0, 0.4);
+        padding: 30px 20px;
+        border-radius: 8px;
+        border: 1px dashed rgba(0, 212, 255, 0.2);
+        min-height: 160px;
+      }
+      #tester-controls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      #tester-progress {
+        flex: 1;
+        min-width: 120px;
+        accent-color: #00d4ff;
+      }
+      #tester-time {
+        font-size: 0.82em;
+        color: var(--muted);
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+      }
+      #tester-vol-row {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        flex-wrap: wrap;
+        padding: 4px 0 2px;
+      }
+      .tester-vol-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .tester-vol-label {
+        font-size: 0.78em;
+        color: var(--muted);
+        white-space: nowrap;
+        min-width: 70px;
+      }
+      .tester-vol-slider {
+        width: 110px;
+        accent-color: #00d4ff;
+        cursor: pointer;
+      }
+      .tester-vol-slider.signals {
+        accent-color: #b44ff4;
+      }
+      .tester-vol-pct {
+        font-size: 0.78em;
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+        min-width: 32px;
+        text-align: right;
+      }
+      #tester-export-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding-top: 4px;
+        border-top: 1px solid var(--border);
+      }
+      #tester-export-row span {
+        font-size: 0.8em;
+        color: var(--muted);
+      }
+      #tester-validate-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        border-top: 1px solid var(--border);
+        padding-top: 10px;
+      }
+      #tester-validate-row .tv-label {
+        font-size: 0.78em;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      #tester-wav-name {
+        font-size: 0.78em;
+        color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 180px;
+      }
+      .tester-val-badge {
+        font-size: 0.73em;
+        font-weight: 700;
+        padding: 2px 10px;
+        border-radius: 20px;
+        border: 1px solid currentColor;
+        white-space: nowrap;
+        letter-spacing: 0.04em;
+      }
+      .tester-val-badge.pending {
+        color: var(--muted);
+        border-color: #2a2a44;
+      }
+      .tester-val-badge.pass {
+        color: #4caf50;
+        background: rgba(76, 175, 80, 0.1);
+      }
+      .tester-val-badge.fail {
+        color: #f44336;
+        background: rgba(244, 67, 54, 0.1);
+      }
+
+      /* ── EDITOR PYTHON PROGRESS MODAL ─────────────────────── */
+      #ed-py-modal {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.72);
+        z-index: 9000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #ed-py-modal[hidden] {
+        display: none;
+      }
+      .ed-py-box {
+        background: #141428;
+        border: 1px solid #2a2a44;
+        border-radius: 10px;
+        padding: 28px 32px;
+        width: 360px;
+        max-width: 94vw;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        align-items: center;
+      }
+      .ed-py-spinner {
+        width: 34px;
+        height: 34px;
+        border: 3px solid #2a2a44;
+        border-top-color: #00d4ff;
+        border-radius: 50%;
+        animation: ed-spin 0.8s linear infinite;
+      }
+      @keyframes ed-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .ed-py-title {
+        font-size: 1em;
+        font-weight: 600;
+        color: #ddeeff;
+        margin: 0;
+        text-align: center;
+      }
+      .ed-py-msg {
+        font-size: 0.8em;
+        color: var(--muted);
+        margin: 0;
+        text-align: center;
+        min-height: 1.1em;
+      }
+      .ed-py-track {
+        width: 100%;
+        background: #0d0d1a;
+        border-radius: 4px;
+        height: 6px;
+        overflow: hidden;
+      }
+      .ed-py-bar {
+        height: 100%;
+        background: #00d4ff;
+        border-radius: 4px;
+        transition: width 0.25s ease;
+      }
+
+      /* ── stage character cards (same design as simulator) ── */
+      .tester-character {
+        width: 200px;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(0, 212, 255, 0.2);
+        border-radius: 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        overflow: hidden;
+        transition: border-color 0.2s;
+      }
+      .tester-char-header {
+        background: rgba(0, 212, 255, 0.07);
+        padding: 10px 12px;
+        border-bottom: 1px solid rgba(0, 212, 255, 0.15);
+      }
+      .tester-char-header h3 {
+        font-size: 0.78em;
+        color: #00d4ff;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .tester-movements {
+        padding: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .tester-movement {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 4px 6px;
+        border-radius: 4px;
+        font-size: 0.72em;
+        transition: background 0.15s;
+      }
+      .tester-movement.active {
+        background: rgba(0, 212, 255, 0.15);
+        color: #00d4ff;
+      }
+      .tester-mov-name {
+        color: var(--muted);
+      }
+      .tester-mov-led {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #1a1a30;
+        border: 1px solid #2a2a44;
+        transition:
+          background 0.1s,
+          box-shadow 0.1s;
+      }
+      .tester-movement.active .tester-mov-led {
+        background: #00d4ff;
+        box-shadow: 0 0 6px #00d4ff;
+      }
+
+      /* ── SAVED SHOWS MODAL ───────────────────────────────────── */
+      #saved-shows-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.65);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+      }
+      #saved-shows-overlay.open {
+        display: flex;
+      }
+      #saved-shows-modal {
+        background: #1a1a2e;
+        border: 1px solid #2a2a44;
+        border-radius: 10px;
+        padding: 24px 28px;
+        width: 520px;
+        max-width: 96vw;
+        max-height: 80vh;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+      }
+      #saved-shows-modal h3 {
+        font-size: 1.1em;
+        color: #ddeeff;
+        margin-bottom: 16px;
+        flex-shrink: 0;
+      }
+      #ss-list {
+        overflow-y: auto;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-height: 60px;
+        padding-right: 4px;
+      }
+      #ss-list::-webkit-scrollbar {
+        width: 6px;
+      }
+      #ss-list::-webkit-scrollbar-track {
+        background: #0d0d1a;
+      }
+      #ss-list::-webkit-scrollbar-thumb {
+        background: #2a2a44;
+        border-radius: 3px;
+      }
+      .ss-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid #2a2a44;
+        border-radius: 6px;
+        padding: 10px 12px;
+      }
+      .ss-item:hover {
+        border-color: #3a3a60;
+      }
+      .ss-item-info {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        min-width: 0;
+      }
+      .ss-item-title {
+        font-size: 0.92em;
+        font-weight: 600;
+        color: #c8c8e0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .ss-item-meta {
+        font-size: 0.75em;
+        color: #555570;
+      }
+      .ss-item-actions {
+        display: flex;
+        gap: 6px;
+        flex-shrink: 0;
+      }
+      #ss-close-row {
+        margin-top: 14px;
+        display: flex;
+        justify-content: flex-end;
+        flex-shrink: 0;
+      }
+
+      /* ── INTRO OVERLAY ──────────────────────────────────────── */
+      .intro-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100vh;
+        background: black;
+        z-index: 10000;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        transition:
+          opacity 1s ease-in-out,
+          transform 1s ease-in-out;
+        cursor: pointer;
+        overflow: hidden;
+      }
+      .intro-video {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        opacity: 0;
+        transition: opacity 0.5s ease;
+      }
+      .intro-video.video-playing {
+        opacity: 1;
+      }
+      .intro-prompt {
+        position: absolute;
+        text-align: center;
+        color: #00d4ff;
+        font-family: "Courier New", monospace;
+        text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+        transition: opacity 0.3s ease;
+      }
+      .power-icon {
+        font-size: 80px;
+        margin-bottom: 20px;
+        animation: pulse-glow 2s infinite ease-in-out;
+      }
+      @keyframes pulse-glow {
+        0% {
+          text-shadow: 0 0 10px rgba(0, 212, 255, 0.4);
+          transform: scale(1);
+        }
+        50% {
+          text-shadow: 0 0 30px rgba(0, 212, 255, 0.8);
+          transform: scale(1.05);
+        }
+        100% {
+          text-shadow: 0 0 10px rgba(0, 212, 255, 0.4);
+          transform: scale(1);
+        }
+      }
+      .skip-intro {
+        position: absolute;
+        bottom: 20px;
+        right: 20px;
+        color: rgba(255, 255, 255, 0.4);
+        font-family: "Courier New", monospace;
+        font-size: 0.8em;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        pointer-events: none;
+      }
+      .intro-hidden {
+        opacity: 0;
+        pointer-events: none;
+        transform: scale(1.1);
+      }
+    </style>
   </head>
   <body>
     <!-- Cyberstar Intro Overlay -->
@@ -24,379 +1096,3122 @@
       </div>
     </div>
 
-    <div class="container app-content" id="app-container">
-      <header class="reveal-stagger">
-        <h1>🎬 Cyberstar Online</h1>
-        <p class="subtitle">
-          Biphase Mark Code Animatronic Control System Emulator
-        </p>
-        <p class="subtitle-info">
-          Recreates the analog control signals from Creative Engineering's
-          Cyberstar systems using digital BMC encoding
-        </p>
+    <div id="app">
+      <!-- ── TOOLBAR ── -->
+      <div id="toolbar">
+        <div class="tb-group">
+          <button id="btn-new-show" class="tb-btn tb-btn-green">
+            ✚ New Show
+          </button>
+          <button
+            id="btn-save"
+            class="tb-btn"
+            disabled
+            title="Save to browser local storage (Ctrl+S)"
+          >
+            💾 Save
+          </button>
+          <button id="btn-saved-shows" class="tb-btn">📁 Saved Shows</button>
+          <label for="wav-input" class="tb-btn">🎵 Load WAV</label>
+          <input type="file" id="wav-input" accept=".wav,audio/*" />
+        </div>
 
-        <div class="band-selector">
-          <label for="band-select">Select Band:</label>
-          <select id="band-select">
-            <option value="munch">🎸 Munch's Make Believe Band</option>
-            <option value="rock">🔥 The Rock - Afire Explosion</option>
-          </select>
-          <button id="toggle-stage-btn" class="btn btn-primary btn-stage">
-            🎭 Show Stage View
+        <div class="tb-title">
+          <span id="show-title">No show loaded</span>
+          <span id="band-badge" class="band-badge" style="display: none"></span>
+        </div>
+
+        <div class="tb-group tb-transport">
+          <button id="btn-play" class="tb-btn" disabled>▶ Play</button>
+          <button id="btn-pause" class="tb-btn" disabled>⏸ Pause</button>
+          <button id="btn-stop" class="tb-btn" disabled>⏹ Stop</button>
+          <button
+            id="btn-snap"
+            class="tb-btn snap-active"
+            title="Snap to frames / block edges / time marks — hold Shift to bypass (S)"
+          >
+            🔒 Snap
+          </button>
+          <button
+            id="btn-state-mode"
+            class="tb-btn"
+            title="Toggle State Block mode — drag a row to insert a HOLD block that pulses the signal to freeze the animatronic at its current position (T)"
+          >
+            📌 State
+          </button>
+          <span id="time-display" class="time-display">0:00.000 / F0</span>
+        </div>
+
+        <div class="tb-group">
+          <button
+            id="btn-zoom-out"
+            class="tb-btn"
+            title="Zoom out (scroll left/right to navigate)"
+          >
+            −
+          </button>
+          <span id="zoom-label">5px/fr</span>
+          <button id="btn-zoom-in" class="tb-btn" title="Zoom in">+</button>
+        </div>
+
+        <div class="tb-group">
+          <button
+            id="btn-tester"
+            class="tb-btn"
+            title="Open the 4-channel WAV tester — verify a rendered 4ch WAV against the RAE stage"
+          >
+            🎭 4ch Tester
+          </button>
+          <button
+            id="btn-export-4ch"
+            class="tb-btn tb-btn-green"
+            disabled
+            title="Render and download a 4-channel WAV (Music L, Music R, TD BMC, BD BMC)"
+          >
+            🎧 Export 4ch WAV
           </button>
         </div>
-      </header>
+      </div>
 
-      <main>
-        <!-- Show Tape Player Section -->
-        <section class="control-panel reveal-stagger">
-          <h2>Show Tape Player</h2>
-
-          <div class="tape-selector">
-            <label for="showtape-select">Select Showtape:</label>
-            <select id="showtape-select">
-              <option value="">-- Choose a showtape --</option>
-              <option value="welcome-sequence">Welcome Sequence</option>
-              <option value="action-demo">Action Demo</option>
-              <option value="full-show">Full Show Routine</option>
-              <option value="test-patterns">Test Patterns</option>
-            </select>
-          </div>
-
-          <div class="player-controls">
-            <button id="play-btn" class="btn btn-primary">▶ Play</button>
-            <button id="pause-btn" class="btn">⏸ Pause</button>
-            <button id="stop-btn" class="btn">⏹ Stop</button>
+      <!-- ── EMPTY STATE ── -->
+      <div id="empty-state">
+        <div class="empty-inner">
+          <div class="empty-icon">🎬</div>
+          <h2>Cyberstar Show Editor</h2>
+          <p>
+            Start a brand-new show, or load a previously saved show from the
+            <strong>📁 Saved Shows</strong> list.
+          </p>
+          <div
+            style="
+              display: flex;
+              gap: 12px;
+              justify-content: center;
+              margin-top: 22px;
+              flex-wrap: wrap;
+            "
+          >
             <button
-              id="export-4ch-btn"
-              class="btn"
-              title="Render and download a 4-channel WAV (Music L, Music R, TD BMC, BD BMC)"
+              id="btn-new-show-empty"
+              class="tb-btn tb-btn-green"
+              style="padding: 10px 24px; font-size: 0.95em"
             >
-              🎚️ Export 4-ch WAV
+              ✚ New Show
             </button>
-            <button
-              id="export-cso-btn"
-              class="btn"
-              title="Export a .cso Cyberstar Show Object for RR-Engine (requires 4-ch WAV to be exported first)"
-              onclick="exportCsoFromCurrentShow()"
-            >
-              🎮 Export as CSO
-            </button>
-            <span
-              id="export-wav-status"
-              style="font-size: 0.82em; opacity: 0.75; margin-left: 8px"
-            ></span>
-            <span
-              id="cso-export-status"
-              style="font-size: 0.82em; opacity: 0.75; margin-left: 8px"
-            ></span>
           </div>
+          <p style="margin-top: 18px; font-size: 0.82em">
+            Load a WAV file after opening a show to audition while you edit.
+          </p>
+        </div>
+      </div>
 
-          <div class="playback-info">
-            <div class="progress-container">
-              <label for="progress-bar">Progress:</label>
+      <!-- ── EDITOR BODY ── -->
+      <div id="editor-body">
+        <!-- Label column (character names + movement names) -->
+        <div id="label-panel">
+          <div id="label-corner"><span>Characters</span></div>
+          <div id="label-scroll"></div>
+        </div>
+
+        <!-- Timeline (ruler + tracks, scrollable) -->
+        <div id="timeline-wrap">
+          <canvas id="ruler-canvas" title="Click to seek"></canvas>
+          <div id="tracks-container">
+            <div id="playhead"></div>
+            <div id="drag-preview"></div>
+            <div id="snap-line"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── SAVED SHOWS MODAL ── -->
+      <div id="saved-shows-overlay">
+        <div id="saved-shows-modal">
+          <h3>📁 Saved Shows</h3>
+          <div id="ss-list"></div>
+          <div id="ss-close-row">
+            <button id="ss-close" class="tb-btn">Close</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── NEW SHOW MODAL ── -->
+      <div id="new-show-overlay">
+        <div id="new-show-modal">
+          <h3>✚ New Show</h3>
+          <div class="ns-field">
+            <label for="ns-title">Show Title</label>
+            <input
+              id="ns-title"
+              type="text"
+              placeholder="My Cyberstar Show"
+              maxlength="80"
+            />
+          </div>
+          <div class="ns-field">
+            <label>Duration</label>
+            <div class="ns-dur-row">
               <input
-                type="range"
-                id="progress-bar"
+                id="ns-dur-min"
+                type="number"
                 min="0"
-                max="100"
-                value="0"
+                max="59"
+                value="3"
+                title="Minutes"
               />
-              <span id="time-display">00:00 / 00:00</span>
+              <span class="ns-dur-sep">m</span>
+              <input
+                id="ns-dur-sec"
+                type="number"
+                min="0"
+                max="59"
+                value="30"
+                title="Seconds"
+              />
+              <span class="ns-dur-sep">s</span>
             </div>
           </div>
+          <div class="ns-actions">
+            <button id="ns-create">Create Show</button>
+            <button id="ns-cancel">Cancel</button>
+          </div>
+        </div>
+      </div>
 
-          <div class="playback-controls">
-            <label for="speed-control">Playback Speed:</label>
-            <select id="speed-control">
-              <option value="0.5">0.5x</option>
-              <option value="1" selected>1.0x</option>
-              <option value="1.5">1.5x</option>
-              <option value="2">2.0x</option>
-            </select>
+      <!-- ── 4CH TESTER MODAL ── -->
+      <div id="tester-overlay">
+        <div id="tester-modal">
+          <div id="tester-header">
+            <h2>🎭 4-Channel WAV Tester — Rock-afire Explosion</h2>
+            <button id="tester-close">&times;</button>
+          </div>
 
-            <label for="volume-control">Volume:</label>
+          <p style="font-size: 0.82em; color: var(--muted); margin: 0">
+            Preview your show live from the editor — signals and music play
+            together in real time. To export a
+            <strong style="color: #ddeeff">.rshw</strong>, first export a 4ch
+            WAV, then upload it below to validate the BMC encoding.
+          </p>
+
+          <!-- Stage arena — populated when tester opens -->
+          <div id="tester-arena">
+            <span
+              style="color: var(--muted); font-size: 0.82em; align-self: center"
+            >
+              Open a show in the editor to activate the stage.
+            </span>
+          </div>
+
+          <!-- Playback controls -->
+          <div id="tester-controls">
+            <button id="tester-play" class="tb-btn" disabled>▶ Play</button>
+            <button id="tester-pause" class="tb-btn" disabled>⏸ Pause</button>
+            <button id="tester-stop" class="tb-btn" disabled>⏹ Stop</button>
             <input
+              id="tester-progress"
               type="range"
-              id="volume-control"
               min="0"
               max="100"
-              value="70"
+              value="0"
+              disabled
             />
-            <span id="volume-display">70%</span>
+            <span id="tester-time">00:00 / 00:00</span>
           </div>
 
-          <div class="tape-info">
-            <p id="tape-description">
-              Select a showtape to view its description
-            </p>
-            <p class="bmc-info">
-              💡 This simulator uses Biphase Mark Code (BMC) encoding - a
-              digital data format where bit transitions create the control
-              signal. Listen carefully to hear the characteristic click patterns
-              of the BMC waveform!
-            </p>
-          </div>
-        </section>
-
-        <!-- Custom Show Builder Section -->
-        <section class="control-panel custom-builder-panel reveal-stagger">
-          <h2>🎼 Custom Show Builder</h2>
-          <p class="builder-info">
-            Upload any song — the simulator detects beats and generates a
-            choreographed showtape for your chosen band. The showtape is saved
-            in your browser and appears in the player above.
-          </p>
-
-          <div class="builder-form">
-            <div class="builder-row">
-              <label for="custom-wav-input" class="btn btn-file"
-                >📂 Choose Song</label
-              >
+          <!-- Volume controls -->
+          <div id="tester-vol-row">
+            <div class="tester-vol-group">
+              <span class="tester-vol-label">🎵 Music</span>
               <input
-                type="file"
-                id="custom-wav-input"
-                accept=".wav,.mp3,.ogg,.flac"
-                style="display: none"
+                type="range"
+                id="tester-vol-music"
+                class="tester-vol-slider"
+                min="0"
+                max="100"
+                value="100"
               />
-              <span id="custom-wav-name" class="file-name-display"
-                >No file chosen</span
-              >
+              <span id="tester-vol-music-pct" class="tester-vol-pct">100%</span>
             </div>
-
-            <div class="builder-row">
-              <label for="custom-show-title">Show Title:</label>
+            <div class="tester-vol-group">
+              <span class="tester-vol-label">📡 Signals</span>
               <input
-                type="text"
-                id="custom-show-title"
-                class="builder-input"
-                placeholder="My Custom Show"
-                maxlength="60"
+                type="range"
+                id="tester-vol-signals"
+                class="tester-vol-slider signals"
+                min="0"
+                max="100"
+                value="100"
+                title="Signal audio only audible in 4ch WAV mode"
               />
-            </div>
-
-            <div class="builder-row">
-              <label for="custom-show-band">Band:</label>
-              <select id="custom-show-band" class="builder-select">
-                <option value="munch">🎸 Munch's Make Believe Band</option>
-                <option value="rock">🔥 Rock Afire Explosion</option>
-              </select>
-            </div>
-
-            <div class="builder-row builder-row-action">
-              <button id="generate-show-btn" class="btn btn-primary" disabled>
-                ⚙️ Generate Show
-              </button>
-              <span id="generate-status" class="generate-status"></span>
+              <span id="tester-vol-signals-pct" class="tester-vol-pct"
+                >100%</span
+              >
             </div>
           </div>
 
-          <div
-            class="saved-shows-header"
-            id="saved-shows-header"
-            style="display: none"
-          >
-            <h3>💾 Saved Custom Shows</h3>
-          </div>
-          <div id="custom-show-list" class="custom-show-list"></div>
-
-          <!-- Show Import -->
-          <div class="show-import-panel">
-            <h3>📥 Import Show File</h3>
-            <p class="builder-info">
-              Import a previously exported <code>.cybershow.json</code> file.
-              Edit the JSON to refine timings, add notes, or hand-craft new cues
-              — then import it back to play it.
-            </p>
-            <div class="builder-row">
-              <label for="import-show-input" class="btn btn-file"
-                >📂 Choose .cybershow.json</label
-              >
-              <input
-                type="file"
-                id="import-show-input"
-                accept=".json,.cybershow.json"
-                style="display: none"
-              />
-              <span id="import-show-name" class="file-name-display"
-                >No file chosen</span
-              >
-            </div>
-            <div class="builder-row">
-              <label for="import-wav-input" class="btn btn-file"
-                >🎵 Choose Song WAV</label
-              >
-              <input
-                type="file"
-                id="import-wav-input"
-                accept=".wav,.mp3,.ogg,.flac"
-                style="display: none"
-              />
-              <span id="import-wav-name" class="file-name-display"
-                >Optional — required for playback &amp; 4-ch export</span
-              >
-            </div>
-            <div class="builder-row builder-row-action">
-              <button id="import-show-btn" class="btn btn-primary" disabled>
-                📥 Import Show
-              </button>
-              <span id="import-show-status" class="generate-status"></span>
-            </div>
-          </div>
-
-          <!-- Timeline Editor link -->
-          <div class="show-editor-link-panel">
-            <h3>🎬 Timeline Editor</h3>
-            <p class="builder-info">
-              Open the visual show editor to view, refine, and hand-place
-              signals on a frame-accurate timeline synced to your WAV file.
-            </p>
-            <a
-              href="editor.html"
-              target="_blank"
-              class="btn btn-primary btn-editor-launch"
-            >
-              🎬 Open Show Editor
-            </a>
-          </div>
-        </section>
-
-        <!-- CSO File Previewer (SViz) -->
-        <section class="control-panel sviz-panel reveal-stagger">
-          <h2>📡 CSO File Previewer</h2>
-          <p class="builder-info">
-            Upload a Cyberstar Online 4-channel WAV file. The file will be
-            verified against hardware specifications before playback is enabled.
-          </p>
-
-          <!-- Upload row -->
-          <div class="builder-row">
-            <button id="sviz-upload-btn" class="btn btn-primary">
-              📂 Load CSO WAV
-            </button>
+          <!-- 4ch Validation row -->
+          <div id="tester-validate-row">
+            <span class="tv-label">🔍 Validate for export:</span>
+            <label for="tester-wav-input" class="tb-btn" style="flex-shrink: 0">
+              📂 Upload 4ch WAV
+            </label>
             <input
               type="file"
-              id="sviz-file-input"
+              id="tester-wav-input"
               accept=".wav"
               style="display: none"
             />
-            <span id="sviz-file-name" class="file-name-display"
-              >No file chosen</span
+            <span id="tester-wav-name">No file loaded</span>
+            <span id="tester-val-badge" class="tester-val-badge pending"
+              >NOT VALIDATED</span
             >
-          </div>
-
-          <!-- Status -->
-          <div id="sviz-status" class="sviz-status sviz-status-info"></div>
-
-          <!-- Stats bar -->
-          <div id="sviz-stats" class="sviz-stats"></div>
-
-          <!-- Verify panel -->
-          <div
-            id="sviz-verify-panel"
-            class="sviz-verify-panel"
-            style="display: none"
-          >
-            <div id="sviz-verdict" class="sviz-verdict"></div>
-            <ul id="sviz-reasons" class="sviz-reasons"></ul>
-          </div>
-
-          <!-- Disclaimer -->
-          <p id="sviz-disclaimer" class="sviz-disclaimer" style="display: none">
-            ⚠️ Audio playback is a browser representation only. The browser
-            resamples to its hardware rate (typically 48 kHz). Signal timing
-            derived from BMC decode is accurate; audio fidelity is not
-            guaranteed.
-          </p>
-
-          <!-- Player panel -->
-          <div
-            id="sviz-player-panel"
-            class="sviz-player-panel"
-            style="display: none"
-          >
-            <canvas
-              id="sviz-waveform"
-              class="sviz-waveform"
-              height="60"
-            ></canvas>
-            <div class="sviz-player-controls">
-              <button id="sviz-play-btn" class="btn btn-primary">▶ Play</button>
-              <button id="sviz-pause-btn" class="btn" disabled>⏸ Pause</button>
-              <button id="sviz-stop-btn" class="btn">⏹ Stop</button>
-              <button id="sviz-stage-btn" class="btn">🎭 Stage View</button>
-              <input
-                id="sviz-progress"
-                type="range"
-                min="0"
-                max="100"
-                value="0"
-                class="sviz-progress"
-              />
-              <span id="sviz-time" class="sviz-time">00:00 / 00:00</span>
-            </div>
           </div>
 
           <!-- Export row -->
-          <div class="sviz-export-row">
-            <span class="sviz-export-label">💾 Export:</span>
-            <button id="sviz-export-wav-btn" class="btn sviz-export-btn">
-              🔊 4-Channel WAV
-            </button>
-            <button
-              id="sviz-export-cso-btn"
-              class="btn sviz-export-btn sviz-export-btn-cso"
-            >
-              📶 4-Channel .CSO
-            </button>
-            <button
-              id="sviz-export-rshw-btn"
-              class="btn sviz-export-btn sviz-export-btn-rshw"
-            >
+          <div id="tester-export-row">
+            <span>📤 Export:</span>
+            <button id="tester-export-rshw" class="tb-btn" disabled>
               📼 Export .rshw
             </button>
           </div>
-        </section>
-      </main>
-    </div>
-
-    <!-- Stage View Modal -->
-    <div id="stage-modal" class="modal">
-      <div class="modal-content stage-modal-content">
-        <div class="modal-header">
-          <h2>🎭 Cyberstar Animatronic Stage</h2>
-          <button id="close-stage-btn" class="close-btn">&times;</button>
-        </div>
-        <div class="stage-info">
-          <p>
-            Real-time visualization of the Biphase Mark Code control bits acting
-            on the show floor machines.
-          </p>
-        </div>
-        <div id="stage-arena" class="stage-arena">
-          <!-- Characters dynamically rendered here -->
         </div>
       </div>
-    </div>
 
-    <!-- Python progress modal -->
-    <div id="py-modal" class="py-modal-overlay" hidden>
-      <div class="py-modal-box">
-        <div class="py-modal-spinner"></div>
-        <p id="py-modal-title" class="py-modal-title">Working…</p>
-        <p id="py-modal-msg" class="py-modal-msg"></p>
-        <div class="py-modal-track">
-          <div id="py-modal-bar" class="py-modal-bar" style="width: 0%"></div>
+      <!-- ── EDITOR PYTHON PROGRESS MODAL ── -->
+      <div id="ed-py-modal" hidden>
+        <div class="ed-py-box">
+          <div class="ed-py-spinner"></div>
+          <p id="ed-py-modal-title" class="ed-py-title">Working…</p>
+          <p id="ed-py-modal-msg" class="ed-py-msg"></p>
+          <div class="ed-py-track">
+            <div id="ed-py-modal-bar" class="ed-py-bar" style="width: 0%"></div>
+          </div>
         </div>
       </div>
-    </div>
 
-    <script src="cyberstar-signals.js"></script>
-    <script src="character-movements.js"></script>
-    <script src="showtapes.js"></script>
-    <script src="show-builder.js"></script>
-    <script src="app.js"></script>
-    <script src="signal-visualizer.js"></script>
-    <script src="cso-exporter.js"></script>
+      <!-- ── HELP BAR ── -->
+      <div id="help-bar">
+        <span><kbd>Drag</kbd> row → create block</span>
+        <span><kbd>Ctrl+Drag</kbd> → marquee select</span>
+        <span><kbd>Ctrl+Click</kbd> block → add to selection</span>
+        <span><kbd>Del</kbd> → remove selected</span>
+        <span
+          ><kbd>Ctrl+C</kbd> copy &ensp; <kbd>Ctrl+V</kbd> paste at playhead
+          &ensp; <kbd>Ctrl+D</kbd> duplicate</span
+        >
+        <span><kbd>Click</kbd> ruler → seek</span>
+        <span
+          ><kbd>Space</kbd> play/pause &ensp; <kbd>S</kbd> snap &ensp;
+          <kbd>T</kbd> state-block mode &ensp; <kbd>Shift</kbd>+drag bypass
+          snap</span
+        >
+        <span
+          >📌 <kbd>State mode</kbd>: drag row after a signal block → freeze
+          position</span
+        >
+      </div>
+
+      <!-- ── STATUS BAR ── -->
+      <div id="status-bar">Ready — load a show to begin.</div>
+    </div>
+    <!-- #app -->
+
+    <script>
+      /* ============================================================
+   CONSTANTS
+   ============================================================ */
+      const FPS = 50;
+      const MS_PER_FRAME = 1000 / FPS; // 20 ms
+      const RULER_H = 44;
+      const CHAR_H = 26;
+      const ROW_H = 22;
+
+      const BAND_ORDER = {
+        rock: [
+          "Rolfe",
+          "Earl",
+          "Dook LaRue",
+          "Fatz",
+          "Beach Bear",
+          "Looney Bird",
+          "Mitzi",
+          "Billy Bob",
+          "Lights",
+        ],
+      };
+
+      const CHAR_COLORS = {
+        Rolfe: "#00c8ff",
+        Earl: "#ff9800",
+        "Dook LaRue": "#4caf50",
+        Fatz: "#b44ff4",
+        "Beach Bear": "#e91e63",
+        "Looney Bird": "#ffe000",
+        Mitzi: "#ff6e40",
+        "Billy Bob": "#00e5cc",
+        Lights: "#aaaaaa",
+      };
+
+      /* ============================================================
+   STATE
+   ============================================================ */
+      let showData = null;
+      let audioBuffer = null;
+      let audioCtx = null;
+      let sourceNode = null;
+      let isPlaying = false;
+      let playAudioStart = 0; // audioCtx.currentTime at last play start
+      let playFrameStart = 0; // show frame at last play start
+      let curFrame = 0;
+      let zoom = 5; // px per frame
+      let totalFrames = 9000;
+      let rowMeta = []; // [{ charName, movKey, color }] in display order
+      let charMeta = []; // [{ charName, color, movKeys[] }] in display order
+      let selectedKey = null; // "charName||movKey||startFrame" or null (primary selection)
+      let selectedKeys = new Set(); // all currently-selected block keys (multi-select)
+      let clipboard = null; // { blocks:[{charName,movKey,startFrame,endFrame}], anchorFrame }
+      let dragState = null; // { charName, movKey, anchorFrame, curFrame }
+      let blockMoveState = null; // { charName, movKey, startFrame, endFrame, dur, grabOffset, el, row, mouseDownX, dragging, mode ('move'|'resize-start'|'resize-end'), previewStart, previewEnd }
+      let dragSelectState = null; // { startFrame, curFrame, anchorClientX }
+      let snapEnabled = true;
+      let drawMode = "signal"; // 'signal' | 'state'
+      let rafId = null;
+
+      const SNAP_PX = 12; // pixels — snap activation threshold
+      const EDGE_PX = 10; // pixels from block edge that triggers resize instead of move
+
+      /* ============================================================
+   DOM REFS
+   ============================================================ */
+      let elEditorBody, elEmptyState, elLabelScroll, elTimelineWrap;
+      let elRulerCanvas, elTracks, elPlayhead, elDragPreview, elSnapLine;
+      let elStatus, elTimeDisplay, elZoomLabel;
+      let elBtnPlay, elBtnPause, elBtnStop, elBtnSnap, elBtnStateMode;
+
+      /* ============================================================
+   UTILITIES
+   ============================================================ */
+      const frameToMs = (f) => f * MS_PER_FRAME;
+      const msToFrame = (ms) => Math.round(ms / MS_PER_FRAME);
+      const frameToX = (f) => f * zoom;
+      const xToFrame = (x) =>
+        Math.max(0, Math.min(totalFrames, Math.round(x / zoom)));
+
+      function frameToTimestamp(f) {
+        const ms = frameToMs(f);
+        const m = Math.floor(ms / 60000);
+        const s = String(Math.floor((ms % 60000) / 1000)).padStart(2, "0");
+        const ms3 = String(Math.round(ms % 1000)).padStart(3, "0");
+        return `${m}:${s}.${ms3}`;
+      }
+
+      function setStatus(msg, color) {
+        elStatus.textContent = msg;
+        elStatus.style.color = color || "";
+      }
+
+      /* ============================================================
+   SNAP
+   ============================================================ */
+      /** Collect all snap-target frames for a given row, excluding one block. */
+      function getSnapFrames(charName, movKey, excludeFrom, excludeTo) {
+        const targets = new Set();
+        // Always snap to start/end of show
+        targets.add(0);
+        targets.add(totalFrames);
+
+        // Snap interval mirrors the ruler's major-tick interval at current zoom
+        const pxPerSec = zoom * FPS;
+        const secOptions = [0.1, 0.2, 0.5, 1, 2, 5, 10, 30, 60];
+        const majorSec = secOptions.find((s) => s * pxPerSec >= 80) ?? 60;
+        const majorF = Math.round(majorSec * FPS);
+        for (let f = 0; f <= totalFrames; f += majorF) targets.add(f);
+
+        // Also snap to whole seconds when zoomed in enough
+        if (zoom >= 4) {
+          for (let f = 0; f <= totalFrames; f += FPS) targets.add(f);
+        }
+
+        // Snap to edges of all signal blocks on this row (excluding the block being moved)
+        for (const blk of getBlocks(charName, movKey)) {
+          if (blk.startFrame === excludeFrom && blk.endFrame === excludeTo)
+            continue;
+          targets.add(blk.startFrame);
+          targets.add(blk.endFrame);
+        }
+        // Snap to edges of state-hold blocks on this row
+        for (const sb of getStateBlocks(charName, movKey)) {
+          if (sb.startFrame === excludeFrom && sb.endFrame === excludeTo)
+            continue;
+          targets.add(sb.startFrame);
+          targets.add(sb.endFrame);
+        }
+        return [...targets].sort((a, b) => a - b);
+      }
+
+      /** Return the nearest snap frame within SNAP_PX, or rawFrame if none / snap off. */
+      function snapFrame(
+        rawFrame,
+        shiftHeld,
+        charName,
+        movKey,
+        excludeFrom,
+        excludeTo,
+      ) {
+        if (!snapEnabled || shiftHeld) return rawFrame;
+        const thresh = Math.max(1, SNAP_PX / zoom);
+        const targets = getSnapFrames(charName, movKey, excludeFrom, excludeTo);
+        let best = rawFrame,
+          bestDist = thresh;
+        for (const t of targets) {
+          const d = Math.abs(t - rawFrame);
+          if (d < bestDist) {
+            bestDist = d;
+            best = t;
+          }
+        }
+        return best;
+      }
+
+      function showSnapLine(frame) {
+        if (!elSnapLine) return;
+        elSnapLine.style.left = frameToX(frame) + "px";
+        elSnapLine.style.height = elTracks.offsetHeight + "px";
+        elSnapLine.style.display = "block";
+      }
+
+      function hideSnapLine() {
+        if (elSnapLine) elSnapLine.style.display = "none";
+      }
+
+      function toggleSnap() {
+        snapEnabled = !snapEnabled;
+        elBtnSnap.classList.toggle("snap-active", snapEnabled);
+        elBtnSnap.textContent = snapEnabled ? "🔒 Snap" : "🔓 Snap";
+        setStatus(
+          snapEnabled
+            ? "Snap ON — blocks will snap to frames, ruler marks, and block edges."
+            : "Snap OFF — freeform placement.",
+        );
+      }
+
+      /** Toggle between normal signal-block draw mode and state-hold draw mode. */
+      function toggleStateMode() {
+        drawMode = drawMode === "state" ? "signal" : "state";
+        const isState = drawMode === "state";
+        elBtnStateMode.classList.toggle("state-mode-active", isState);
+        elBtnStateMode.textContent = isState ? "📌 State ●" : "📌 State";
+        // Change the timeline cursor to hint at the active mode
+        if (elTracks) {
+          for (const row of elTracks.querySelectorAll(".track-row"))
+            row.style.cursor = isState ? "cell" : "crosshair";
+        }
+        setStatus(
+          isState
+            ? "STATE BLOCK MODE — drag a timeline row to insert a hold block that freezes the animatronic's position. Press T or click again to exit."
+            : "SIGNAL BLOCK MODE — drag a timeline row to insert a normal signal block.",
+        );
+      }
+
+      /* ============================================================
+   SHOW DATA HELPERS
+   ============================================================ */
+      function getCharSignals(charName, movKey) {
+        if (!showData?.characters?.[charName]) return [];
+        return showData.characters[charName].signals.filter(
+          (s) => s.movement === movKey,
+        );
+      }
+
+      function ensureChar(charName) {
+        if (!showData.characters[charName]) {
+          const cEntry = CHARACTER_MOVEMENTS[charName];
+          const track = cEntry
+            ? Object.values(cEntry.movements)[0].track
+            : "TD";
+          showData.characters[charName] = { track, signals: [] };
+        }
+      }
+
+      function getBit(charName, movKey) {
+        return CHARACTER_MOVEMENTS[charName]?.movements?.[movKey]?.bit ?? 0;
+      }
+
+      /** Return all state-hold blocks for a given character + movement, sorted by startFrame. */
+      function getStateBlocks(charName, movKey) {
+        return (showData?.characters?.[charName]?.state_blocks || [])
+          .filter((sb) => sb.movement === movKey)
+          .sort((a, b) => a.startFrame - b.startFrame);
+      }
+
+      /**
+       * Determine what state a movement is in at `frame` by scanning all
+       * ON/OFF signals up to that point.  Returns true if the mechanism
+       * is currently activated (ON / extended).
+       */
+      function getMovementStateAtFrame(charName, movKey, frame) {
+        const sigs = getCharSignals(charName, movKey)
+          .filter((s) => s.frame <= frame)
+          .sort((a, b) => a.frame - b.frame);
+        let on = false;
+        for (const s of sigs) on = s.state;
+        return on;
+      }
+
+      /** Pair ON→OFF signals into renderable blocks */
+      function getBlocks(charName, movKey) {
+        const sigs = getCharSignals(charName, movKey)
+          .slice()
+          .sort((a, b) => a.frame - b.frame);
+        const blocks = [];
+        let onFrame = null;
+        for (const s of sigs) {
+          if (s.state && onFrame === null) {
+            onFrame = s.frame;
+          } else if (!s.state && onFrame !== null) {
+            blocks.push({ startFrame: onFrame, endFrame: s.frame });
+            onFrame = null;
+          }
+        }
+        if (onFrame !== null)
+          blocks.push({ startFrame: onFrame, endFrame: totalFrames });
+        return blocks;
+      }
+
+      /* ============================================================
+   NEW SHOW
+   ============================================================ */
+      function openNewShowModal() {
+        document.getElementById("new-show-overlay").classList.add("open");
+        // Focus title input after transition
+        setTimeout(() => document.getElementById("ns-title").focus(), 50);
+      }
+
+      function closeNewShowModal() {
+        document.getElementById("new-show-overlay").classList.remove("open");
+      }
+
+      function createNewShow() {
+        const title =
+          document.getElementById("ns-title").value.trim() || "Untitled Show";
+        const band = "rock";
+        const mins = Math.max(
+          0,
+          parseInt(document.getElementById("ns-dur-min").value) || 0,
+        );
+        const secs = Math.max(
+          0,
+          Math.min(
+            59,
+            parseInt(document.getElementById("ns-dur-sec").value) || 0,
+          ),
+        );
+        const durationMs = (mins * 60 + secs) * 1000 || 30000; // default 30s if zero
+        const frames = msToFrame(durationMs);
+
+        showData = {
+          cyberstar_show: true,
+          version: "3.0",
+          fps: FPS,
+          title,
+          band,
+          duration_frames: frames,
+          duration_ms: durationMs,
+          characters: {},
+        };
+
+        totalFrames = frames;
+        closeNewShowModal();
+        buildRowMeta(band);
+        buildEditor();
+
+        document.getElementById("show-title").textContent = title;
+        const badge = document.getElementById("band-badge");
+        badge.textContent = "RFE";
+        badge.className = "band-badge band-rock";
+        badge.style.display = "";
+
+        setStatus(
+          `New show "${title}" — ${frames} frames (${frameToTimestamp(frames)}). Start drawing signal blocks on the timeline.`,
+        );
+        document.getElementById("btn-save").disabled = false;
+        document.getElementById("btn-export-4ch").disabled = false;
+      }
+
+      /* ============================================================
+   ROW / CHAR META
+   ============================================================ */
+      function buildRowMeta(band) {
+        rowMeta = [];
+        charMeta = [];
+        const order = BAND_ORDER[band] || Object.keys(CHARACTER_MOVEMENTS);
+        for (const charName of order) {
+          const cEntry = CHARACTER_MOVEMENTS[charName];
+          if (!cEntry) continue;
+          const movKeys = Object.keys(cEntry.movements);
+          const color = CHAR_COLORS[charName] || "#888899";
+          charMeta.push({ charName, color, movKeys });
+          for (const movKey of movKeys) {
+            rowMeta.push({ charName, movKey, color });
+          }
+        }
+      }
+
+      /* ============================================================
+   EDITOR CONSTRUCTION
+   ============================================================ */
+      function buildEditor() {
+        elEditorBody.style.display = "flex";
+        elEmptyState.style.display = "none";
+        buildLabels();
+        buildTracks();
+        drawRuler();
+        curFrame = 0;
+        updatePlayhead();
+      }
+
+      function buildLabels() {
+        let html = "";
+        for (const cm of charMeta) {
+          html += `<div class="lbl-char-header" style="height:${CHAR_H}px;border-color:${cm.color}44;background:${cm.color}18;">
+               <span style="color:${cm.color};font-size:0.79em;font-weight:700;letter-spacing:.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${cm.charName}</span>
+             </div>`;
+          for (const movKey of cm.movKeys) {
+            html += `<div class="lbl-move-row" style="height:${ROW_H}px;">${movKey.replace(/_/g, " ")}</div>`;
+          }
+        }
+        elLabelScroll.innerHTML = html;
+      }
+
+      function buildTracks() {
+        const totalW = frameToX(totalFrames) + 300;
+        elTracks.style.width = totalW + "px";
+
+        // Clear existing tracks but keep playhead + drag-preview
+        for (const el of [...elTracks.children]) {
+          if (
+            el.id !== "playhead" &&
+            el.id !== "drag-preview" &&
+            el.id !== "snap-line"
+          )
+            el.remove();
+        }
+
+        const frag = document.createDocumentFragment();
+        for (const cm of charMeta) {
+          const hdr = document.createElement("div");
+          hdr.className = "track-char-header";
+          hdr.style.cssText = `height:${CHAR_H}px;width:${totalW}px;border-color:${cm.color}33;background:${cm.color}0e;color:${cm.color}77;`;
+          hdr.textContent = cm.charName;
+          frag.appendChild(hdr);
+
+          for (const movKey of cm.movKeys) {
+            const row = document.createElement("div");
+            row.className = "track-row";
+            row.dataset.char = cm.charName;
+            row.dataset.mov = movKey;
+            row.style.cssText = `height:${ROW_H}px;width:${totalW}px;`;
+            row.addEventListener("mousedown", onRowMouseDown);
+            frag.appendChild(row);
+          }
+        }
+        elTracks.appendChild(frag);
+
+        // Populate signal blocks
+        for (const { charName, movKey, color } of rowMeta) {
+          renderBlocks(charName, movKey, color);
+        }
+      }
+
+      function renderBlocks(charName, movKey, color) {
+        const row = elTracks.querySelector(
+          `.track-row[data-char="${CSS.escape(charName)}"][data-mov="${CSS.escape(movKey)}"]`,
+        );
+        if (!row) return;
+
+        // Clear both signal blocks AND any state blocks before re-rendering
+        for (const b of row.querySelectorAll(".signal-block, .state-block"))
+          b.remove();
+
+        // ── Signal blocks ────────────────────────────────────────────────
+        for (const blk of getBlocks(charName, movKey)) {
+          const x = frameToX(blk.startFrame);
+          const w = Math.max(3, frameToX(blk.endFrame) - x);
+          const key = `${charName}||${movKey}||${blk.startFrame}`;
+
+          const el = document.createElement("div");
+          el.className = "signal-block";
+          el.dataset.key = key;
+          el.style.cssText = `left:${x}px;width:${w}px;background:${color};`;
+          el.title = `${charName} / ${movKey.replace(/_/g, " ")}\nON: F${blk.startFrame} (${frameToTimestamp(blk.startFrame)})\nOFF: F${blk.endFrame} (${frameToTimestamp(blk.endFrame)})\nDrag middle → move  |  Drag edge → resize  |  Del → remove`;
+          el.addEventListener("mousemove", (ev) => {
+            const ex = ev.offsetX;
+            const bw = el.offsetWidth;
+            if (ex < EDGE_PX || bw - ex < EDGE_PX)
+              el.style.cursor = "ew-resize";
+            else el.style.cursor = "grab";
+          });
+          el.addEventListener("mouseleave", () => {
+            el.style.cursor = "";
+          });
+          el.addEventListener("mousedown", (e) => {
+            if (e.button !== 0) return;
+            e.stopPropagation();
+            e.preventDefault();
+            if (e.ctrlKey || e.metaKey) {
+              toggleBlockInSelection(key, el);
+              return;
+            }
+            selectBlock(key, el);
+            const bw = el.offsetWidth;
+            const ex = e.offsetX;
+            const mode =
+              ex < EDGE_PX
+                ? "resize-start"
+                : bw - ex < EDGE_PX
+                  ? "resize-end"
+                  : "move";
+            blockMoveState = {
+              charName,
+              movKey,
+              startFrame: blk.startFrame,
+              endFrame: blk.endFrame,
+              dur: blk.endFrame - blk.startFrame,
+              el,
+              row,
+              mouseDownX: e.clientX,
+              dragging: false,
+              mode,
+              previewStart: undefined,
+              previewEnd: undefined,
+              isState: false,
+            };
+          });
+          row.appendChild(el);
+        }
+
+        // ── State-hold blocks ─────────────────────────────────────────────
+        for (const sb of getStateBlocks(charName, movKey)) {
+          const x = frameToX(sb.startFrame);
+          const w = Math.max(3, frameToX(sb.endFrame) - x);
+          const sbKey = `STATE||${charName}||${movKey}||${sb.startFrame}`;
+          const heldOn = getMovementStateAtFrame(
+            charName,
+            movKey,
+            sb.startFrame,
+          );
+          // Diagonal-stripe pattern; denser / brighter when mechanism is ON
+          const hi = heldOn ? "66" : "33";
+          const lo = "14";
+          const el = document.createElement("div");
+          el.className = "state-block";
+          el.dataset.key = sbKey;
+          el.style.cssText =
+            `left:${x}px;width:${w}px;` +
+            `background:repeating-linear-gradient(-45deg,${color}${hi} 0px,${color}${hi} 5px,${color}${lo} 5px,${color}${lo} 10px);` +
+            `border-color:${color}aa;`;
+          if (w > 34) el.textContent = heldOn ? "HOLD" : "REST";
+          el.title =
+            `${charName} / ${movKey.replace(/_/g, " ")} — STATE HOLD\n` +
+            `Range: F${sb.startFrame} (${frameToTimestamp(sb.startFrame)}) → F${sb.endFrame} (${frameToTimestamp(sb.endFrame)})\n` +
+            `Holding: ${heldOn ? "ON (extended/active)" : "OFF (retracted/rest)"}\n` +
+            `Drag middle → move  |  Drag edge → resize  |  Del → remove`;
+          el.addEventListener("mousemove", (ev) => {
+            const ex = ev.offsetX;
+            const bw = el.offsetWidth;
+            if (ex < EDGE_PX || bw - ex < EDGE_PX)
+              el.style.cursor = "ew-resize";
+            else el.style.cursor = "grab";
+          });
+          el.addEventListener("mouseleave", () => {
+            el.style.cursor = "";
+          });
+          el.addEventListener("mousedown", (e) => {
+            if (e.button !== 0) return;
+            e.stopPropagation();
+            e.preventDefault();
+            if (e.ctrlKey || e.metaKey) {
+              toggleBlockInSelection(sbKey, el);
+              return;
+            }
+            selectBlock(sbKey, el);
+            const bw = el.offsetWidth;
+            const ex = e.offsetX;
+            const mode =
+              ex < EDGE_PX
+                ? "resize-start"
+                : bw - ex < EDGE_PX
+                  ? "resize-end"
+                  : "move";
+            blockMoveState = {
+              charName,
+              movKey,
+              startFrame: sb.startFrame,
+              endFrame: sb.endFrame,
+              dur: sb.endFrame - sb.startFrame,
+              el,
+              row,
+              mouseDownX: e.clientX,
+              dragging: false,
+              mode,
+              previewStart: undefined,
+              previewEnd: undefined,
+              isState: true,
+            };
+          });
+          row.appendChild(el);
+        }
+      }
+
+      function refreshRow(charName, movKey) {
+        const meta = rowMeta.find(
+          (r) => r.charName === charName && r.movKey === movKey,
+        );
+        renderBlocks(charName, movKey, meta?.color || "#888");
+      }
+
+      /* ============================================================
+   SELECTION
+   ============================================================ */
+      function selectBlock(key, el) {
+        clearSelection();
+        selectedKey = key;
+        selectedKeys.add(key);
+        el.classList.add("selected");
+        const parts = key.split("||");
+        if (parts[0] === "STATE") {
+          const [, cn, mk, sf] = parts;
+          setStatus(
+            `Selected STATE HOLD: ${cn} / ${mk.replace(/_/g, " ")} — F${sf} — Del to remove`,
+          );
+        } else {
+          const [cn, mk, sf] = parts;
+          setStatus(
+            `Selected: ${cn} / ${mk.replace(/_/g, " ")} — F${sf} — Ctrl+C copy · Ctrl+D duplicate · Del remove`,
+          );
+        }
+      }
+
+      function toggleBlockInSelection(key, el) {
+        if (selectedKeys.has(key)) {
+          selectedKeys.delete(key);
+          el.classList.remove("selected");
+          if (selectedKey === key)
+            selectedKey = selectedKeys.size > 0 ? [...selectedKeys][0] : null;
+        } else {
+          selectedKeys.add(key);
+          selectedKey = key;
+          el.classList.add("selected");
+        }
+        const n = selectedKeys.size;
+        if (n === 0) {
+          setStatus("No blocks selected.");
+        } else if (n === 1) {
+          const _parts = [...selectedKeys][0].split("||");
+          const [cn, mk, sf] = _parts[0] === "STATE" ? _parts.slice(1) : _parts;
+          const pfx = _parts[0] === "STATE" ? "STATE HOLD: " : "";
+          setStatus(
+            `Selected: ${pfx}${cn} / ${mk.replace(/_/g, " ")} — F${sf} — ${_parts[0] === "STATE" ? "Del to remove" : "Ctrl+C copy · Del remove"}`,
+          );
+        } else {
+          setStatus(
+            `${n} blocks selected — Ctrl+C copy, Ctrl+D duplicate, Del delete all.`,
+          );
+        }
+      }
+
+      function clearSelection() {
+        selectedKey = null;
+        selectedKeys.clear();
+        for (const b of elTracks.querySelectorAll(".signal-block.selected")) {
+          b.classList.remove("selected");
+        }
+      }
+
+      function deleteSelected() {
+        if (selectedKeys.size === 0) return;
+        const affectedRows = new Set();
+        for (const k of selectedKeys) {
+          const parts = k.split("||");
+          if (parts[0] === "STATE") {
+            // ── State-hold block deletion ──
+            const [, charName, movKey, sfStr] = parts;
+            const startFrame = parseInt(sfStr, 10);
+            const sbs = showData?.characters?.[charName]?.state_blocks;
+            if (sbs) {
+              const idx = sbs.findIndex(
+                (sb) => sb.movement === movKey && sb.startFrame === startFrame,
+              );
+              if (idx >= 0) sbs.splice(idx, 1);
+            }
+            affectedRows.add(`${charName}||${movKey}`);
+          } else {
+            // ── Signal block deletion ──
+            const [charName, movKey, sfStr] = parts;
+            const startFrame = parseInt(sfStr, 10);
+            const sigs = showData?.characters?.[charName]?.signals;
+            if (!sigs) continue;
+            let onIdx = -1,
+              offIdx = -1;
+            for (let i = 0; i < sigs.length; i++) {
+              if (
+                sigs[i].movement === movKey &&
+                sigs[i].state === true &&
+                sigs[i].frame === startFrame
+              )
+                onIdx = i;
+            }
+            if (onIdx >= 0) {
+              for (let i = onIdx + 1; i < sigs.length; i++) {
+                if (sigs[i].movement === movKey && sigs[i].state === false) {
+                  offIdx = i;
+                  break;
+                }
+              }
+            }
+            const toRemove = [onIdx, offIdx]
+              .filter((i) => i >= 0)
+              .sort((a, b) => b - a);
+            for (const idx of toRemove) sigs.splice(idx, 1);
+            affectedRows.add(`${charName}||${movKey}`);
+          }
+        }
+        const n = selectedKeys.size;
+        clearSelection();
+        for (const rowKey of affectedRows) {
+          const [cn, mk] = rowKey.split("||");
+          refreshRow(cn, mk);
+        }
+        setStatus(`Removed ${n} block${n === 1 ? "" : "s"}.`);
+      }
+
+      /* ============================================================
+   COPY / PASTE
+   ============================================================ */
+      function getSelectedBlocks() {
+        const result = [];
+        for (const key of selectedKeys) {
+          const [charName, movKey, sfStr] = key.split("||");
+          const startFrame = parseInt(sfStr, 10);
+          const blk = getBlocks(charName, movKey).find(
+            (b) => b.startFrame === startFrame,
+          );
+          if (blk)
+            result.push({
+              charName,
+              movKey,
+              startFrame: blk.startFrame,
+              endFrame: blk.endFrame,
+            });
+        }
+        return result;
+      }
+
+      function copySelected() {
+        const blocks = getSelectedBlocks();
+        if (blocks.length === 0) {
+          setStatus("Nothing selected to copy.", "#fa0");
+          return;
+        }
+        const anchorFrame = Math.min(...blocks.map((b) => b.startFrame));
+        clipboard = { blocks, anchorFrame };
+        setStatus(
+          `Copied ${blocks.length} block${blocks.length === 1 ? "" : "s"} — Ctrl+V to paste at playhead (F${curFrame}).`,
+        );
+      }
+
+      function pasteClipboard() {
+        if (!clipboard || !showData) {
+          setStatus("Nothing to paste.", "#fa0");
+          return;
+        }
+        const offset = curFrame - clipboard.anchorFrame;
+        const placed = [];
+        const skipped = [];
+        for (const blk of clipboard.blocks) {
+          const newStart = Math.max(0, blk.startFrame + offset);
+          const newEnd = Math.min(totalFrames, blk.endFrame + offset);
+          if (newEnd - newStart < 1) {
+            skipped.push(blk);
+            continue;
+          }
+          const overlaps = getBlocks(blk.charName, blk.movKey).some(
+            (b) => newStart < b.endFrame && newEnd > b.startFrame,
+          );
+          if (overlaps) {
+            skipped.push(blk);
+            continue;
+          }
+          commitInsert(blk.charName, blk.movKey, newStart, newEnd);
+          placed.push(`${blk.charName}||${blk.movKey}||${newStart}`);
+        }
+        if (placed.length === 0) {
+          setStatus("⚠ Paste: all blocks overlap existing signals.", "#fa0");
+          return;
+        }
+        clearSelection();
+        for (const k of placed) {
+          selectedKeys.add(k);
+          selectedKey = k;
+          const el = elTracks.querySelector(
+            `.signal-block[data-key="${CSS.escape(k)}"]`,
+          );
+          if (el) el.classList.add("selected");
+        }
+        const msg = skipped.length
+          ? `Pasted ${placed.length} block${placed.length === 1 ? "" : "s"} (${skipped.length} skipped — overlap).`
+          : `Pasted ${placed.length} block${placed.length === 1 ? "" : "s"} at F${curFrame}.`;
+        setStatus(msg);
+      }
+
+      /* ============================================================
+   DRAG-SELECT RECT
+   ============================================================ */
+      function updateSelectRect(startFrame, endFrame) {
+        const elRect = document.getElementById("select-rect");
+        if (!elRect) return;
+        const x1 = frameToX(Math.min(startFrame, endFrame));
+        const x2 = frameToX(Math.max(startFrame, endFrame));
+        elRect.style.display = "block";
+        elRect.style.left = x1 + "px";
+        elRect.style.width = Math.max(2, x2 - x1) + "px";
+        elRect.style.height =
+          Math.max(elTracks.scrollHeight, elTimelineWrap.clientHeight) + "px";
+      }
+
+      function hideSelectRect() {
+        const elRect = document.getElementById("select-rect");
+        if (elRect) elRect.style.display = "none";
+      }
+
+      /* ============================================================
+   DRAG-TO-CREATE
+   ============================================================ */
+      function onRowMouseDown(e) {
+        if (e.button !== 0) return;
+        const row = e.currentTarget;
+        const charName = row.dataset.char;
+        const movKey = row.dataset.mov;
+        const rect = row.getBoundingClientRect();
+        const rawX = e.clientX - rect.left + elTimelineWrap.scrollLeft;
+
+        // ── Ctrl+drag → marquee selection ──────────────────────────────────
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          const frame = xToFrame(rawX);
+          dragSelectState = {
+            startFrame: frame,
+            curFrame: frame,
+            anchorClientX: e.clientX,
+          };
+          updateSelectRect(frame, frame);
+          return;
+        }
+
+        const frame = snapFrame(xToFrame(rawX), e.shiftKey, charName, movKey);
+        clearSelection();
+        dragState = {
+          charName,
+          movKey,
+          anchorFrame: frame,
+          curFrame: frame,
+          row,
+          shiftHeld: e.shiftKey,
+          isState: drawMode === "state",
+        };
+        updateDragPreview(row, frame, frame);
+        showSnapLine(frame);
+        e.preventDefault();
+      }
+
+      function onMouseMove(e) {
+        /* ── Block interaction drag (move / resize-start / resize-end) ── */
+        if (blockMoveState) {
+          const dx = e.clientX - blockMoveState.mouseDownX;
+          if (!blockMoveState.dragging) {
+            if (Math.abs(dx) < 4) return;
+            blockMoveState.dragging = true;
+            blockMoveState.el.classList.add("block-dragging");
+            if (blockMoveState.mode === "move") {
+              // Compute grab offset (frames into the block where user clicked)
+              const rowRect = blockMoveState.row.getBoundingClientRect();
+              const grabX =
+                blockMoveState.mouseDownX -
+                rowRect.left +
+                elTimelineWrap.scrollLeft;
+              blockMoveState.grabOffset =
+                xToFrame(grabX) - blockMoveState.startFrame;
+            }
+          }
+          if (blockMoveState.dragging) {
+            const { charName, movKey, startFrame, endFrame, dur, mode } =
+              blockMoveState;
+            const rowRect = blockMoveState.row.getBoundingClientRect();
+            const rawX = e.clientX - rowRect.left + elTimelineWrap.scrollLeft;
+            const rawFrame = xToFrame(rawX);
+
+            if (mode === "move") {
+              const rawStart = rawFrame - blockMoveState.grabOffset;
+              const rawEnd = rawStart + dur;
+              const snappedStart = snapFrame(
+                rawStart,
+                e.shiftKey,
+                charName,
+                movKey,
+                startFrame,
+                endFrame,
+              );
+              const snappedEnd = snapFrame(
+                rawEnd,
+                e.shiftKey,
+                charName,
+                movKey,
+                startFrame,
+                endFrame,
+              );
+
+              // Track which edges actually snapped and by how much.
+              // If an edge didn't snap, snapFrame returns the raw value → distance 0,
+              // which would incorrectly beat a real snap on the other edge.
+              // Use Infinity for "no snap happened" so the other edge always wins.
+              const startDist =
+                snappedStart !== rawStart
+                  ? Math.abs(snappedStart - rawStart)
+                  : Infinity;
+              const endDist =
+                snappedEnd !== rawEnd
+                  ? Math.abs(snappedEnd - rawEnd)
+                  : Infinity;
+
+              let finalStart = snappedStart;
+              if (endDist < startDist) finalStart = snappedEnd - dur; // end-edge snap wins
+
+              const clampedStart = Math.max(
+                0,
+                Math.min(totalFrames - dur, finalStart),
+              );
+              blockMoveState.previewStart = clampedStart;
+              blockMoveState.previewEnd = clampedStart + dur;
+              // Show snap line at whichever edge is snapped (prefer end if that won)
+              const snapLineFrame =
+                endDist < startDist ? clampedStart + dur : clampedStart;
+              updateDragPreview(
+                blockMoveState.row,
+                clampedStart,
+                clampedStart + dur,
+              );
+              showSnapLine(snapLineFrame);
+            } else if (mode === "resize-start") {
+              const snapped = snapFrame(
+                rawFrame,
+                e.shiftKey,
+                charName,
+                movKey,
+                startFrame,
+                endFrame,
+              );
+              const newStart = Math.max(0, Math.min(endFrame - 1, snapped));
+              blockMoveState.previewStart = newStart;
+              blockMoveState.previewEnd = endFrame;
+              updateDragPreview(blockMoveState.row, newStart, endFrame);
+              showSnapLine(newStart);
+            } else if (mode === "resize-end") {
+              const snapped = snapFrame(
+                rawFrame,
+                e.shiftKey,
+                charName,
+                movKey,
+                startFrame,
+                endFrame,
+              );
+              const newEnd = Math.max(
+                startFrame + 1,
+                Math.min(totalFrames, snapped),
+              );
+              blockMoveState.previewStart = startFrame;
+              blockMoveState.previewEnd = newEnd;
+              updateDragPreview(blockMoveState.row, startFrame, newEnd);
+              showSnapLine(newEnd);
+            }
+          }
+          return;
+        }
+
+        /* ── Marquee drag-select ── */
+        if (dragSelectState) {
+          const tracksRect = elTracks.getBoundingClientRect();
+          const rawX = e.clientX - tracksRect.left + elTimelineWrap.scrollLeft;
+          dragSelectState.curFrame = xToFrame(rawX);
+          updateSelectRect(
+            dragSelectState.startFrame,
+            dragSelectState.curFrame,
+          );
+          return;
+        }
+
+        /* ── New-block creation drag ── */
+        if (!dragState) return;
+        const row = dragState.row;
+        const rect = row.getBoundingClientRect();
+        const rawX = e.clientX - rect.left + elTimelineWrap.scrollLeft;
+        dragState.curFrame = snapFrame(
+          xToFrame(rawX),
+          e.shiftKey,
+          dragState.charName,
+          dragState.movKey,
+        );
+        const a = Math.min(dragState.anchorFrame, dragState.curFrame);
+        const b = Math.max(dragState.anchorFrame, dragState.curFrame);
+        updateDragPreview(row, a, b);
+        showSnapLine(b);
+      }
+
+      function onMouseUp(e) {
+        /* ── Block-move drag end ── */
+        if (blockMoveState) {
+          const bm = blockMoveState;
+          blockMoveState = null;
+          hideDragPreview();
+          hideSnapLine();
+
+          if (bm.dragging) {
+            bm.el.classList.remove("block-dragging");
+            if (
+              bm.previewStart !== undefined &&
+              (bm.previewStart !== bm.startFrame ||
+                bm.previewEnd !== bm.endFrame)
+            ) {
+              // Overlap check — exclude the block being moved
+              const signalOverlap = getBlocks(bm.charName, bm.movKey).some(
+                (b) => {
+                  if (
+                    !bm.isState &&
+                    b.startFrame === bm.startFrame &&
+                    b.endFrame === bm.endFrame
+                  )
+                    return false;
+                  return (
+                    bm.previewStart < b.endFrame && bm.previewEnd > b.startFrame
+                  );
+                },
+              );
+              const stateOverlap = getStateBlocks(bm.charName, bm.movKey).some(
+                (b) => {
+                  if (
+                    bm.isState &&
+                    b.startFrame === bm.startFrame &&
+                    b.endFrame === bm.endFrame
+                  )
+                    return false;
+                  return (
+                    bm.previewStart < b.endFrame && bm.previewEnd > b.startFrame
+                  );
+                },
+              );
+              if (signalOverlap || stateOverlap) {
+                setStatus(
+                  "⚠ Cannot move block — would overlap another signal.",
+                  "#fa0",
+                );
+                refreshRow(bm.charName, bm.movKey);
+              } else {
+                commitBlockMove(
+                  bm.charName,
+                  bm.movKey,
+                  bm.startFrame,
+                  bm.endFrame,
+                  bm.previewStart,
+                  bm.previewEnd,
+                  bm.isState,
+                );
+              }
+            } else {
+              refreshRow(bm.charName, bm.movKey); // re-render to remove dragging class
+            }
+          }
+          return;
+        }
+
+        /* ── Marquee drag-select end ── */
+        if (dragSelectState) {
+          const ds = dragSelectState;
+          dragSelectState = null;
+          hideSelectRect();
+          const frameA = Math.min(ds.startFrame, ds.curFrame);
+          const frameB = Math.max(ds.startFrame, ds.curFrame);
+          if (frameB - frameA >= 1) {
+            clearSelection();
+            let count = 0;
+            for (const { charName, movKey } of rowMeta) {
+              // Select signal blocks in range
+              for (const blk of getBlocks(charName, movKey)) {
+                if (blk.startFrame < frameB && blk.endFrame > frameA) {
+                  const k = `${charName}||${movKey}||${blk.startFrame}`;
+                  selectedKeys.add(k);
+                  selectedKey = k;
+                  count++;
+                  const el = elTracks.querySelector(
+                    `.signal-block[data-key="${CSS.escape(k)}"]`,
+                  );
+                  if (el) el.classList.add("selected");
+                }
+              }
+              // Also select state-hold blocks in range
+              for (const sb of getStateBlocks(charName, movKey)) {
+                if (sb.startFrame < frameB && sb.endFrame > frameA) {
+                  const k = `STATE||${charName}||${movKey}||${sb.startFrame}`;
+                  selectedKeys.add(k);
+                  selectedKey = k;
+                  count++;
+                  const el = elTracks.querySelector(
+                    `.state-block[data-key="${CSS.escape(k)}"]`,
+                  );
+                  if (el) el.classList.add("selected");
+                }
+              }
+            }
+            setStatus(
+              count === 0
+                ? "Drag-select: no blocks in range."
+                : `Selected ${count} block${count === 1 ? "" : "s"} — Ctrl+C copy, Ctrl+D duplicate, Del delete.`,
+            );
+          }
+          return;
+        }
+
+        /* ── New-block creation drag end ── */
+        if (!dragState) return;
+        const {
+          charName,
+          movKey,
+          anchorFrame,
+          curFrame: cf,
+          row,
+          isState,
+        } = dragState;
+        let startFrame = Math.min(anchorFrame, cf);
+        let endFrame = Math.max(anchorFrame, cf);
+        if (endFrame - startFrame < 1) endFrame = startFrame + 1;
+        endFrame = Math.min(endFrame, totalFrames);
+
+        hideDragPreview();
+        hideSnapLine();
+        dragState = null;
+
+        if (startFrame >= endFrame) return;
+
+        // Overlap check — neither signal blocks nor state blocks may overlap
+        const sigOverlap = getBlocks(charName, movKey).some(
+          (b) => startFrame < b.endFrame && endFrame > b.startFrame,
+        );
+        const sbOverlap = getStateBlocks(charName, movKey).some(
+          (b) => startFrame < b.endFrame && endFrame > b.startFrame,
+        );
+        if (sigOverlap || sbOverlap) {
+          setStatus(
+            `⚠ Cannot place ${isState ? "state" : "signal"} block — overlaps an existing block. Select and delete the existing block first.`,
+            "#fa0",
+          );
+          return;
+        }
+
+        if (isState) {
+          commitStateInsert(charName, movKey, startFrame, endFrame);
+        } else {
+          commitInsert(charName, movKey, startFrame, endFrame);
+        }
+      }
+
+      /* ============================================================
+   BLOCK MOVE
+   ============================================================ */
+      function commitBlockMove(
+        charName,
+        movKey,
+        oldStart,
+        oldEnd,
+        newStart,
+        newEnd,
+        isState = false,
+      ) {
+        // ── State-hold block move ────────────────────────────────────────
+        if (isState) {
+          const sbs = showData?.characters?.[charName]?.state_blocks;
+          if (!sbs) {
+            setStatus("✗ Could not locate state block to move.", "#f44");
+            refreshRow(charName, movKey);
+            return;
+          }
+          const sb = sbs.find(
+            (b) =>
+              b.movement === movKey &&
+              b.startFrame === oldStart &&
+              b.endFrame === oldEnd,
+          );
+          if (!sb) {
+            setStatus("✗ Could not locate state block to move.", "#f44");
+            refreshRow(charName, movKey);
+            return;
+          }
+          sb.startFrame = newStart;
+          sb.endFrame = newEnd;
+          sbs.sort((a, b) => a.startFrame - b.startFrame);
+          selectedKey = `STATE||${charName}||${movKey}||${newStart}`;
+          selectedKeys.clear();
+          selectedKeys.add(selectedKey);
+          refreshRow(charName, movKey);
+          const movedEl = elTracks.querySelector(
+            `.state-block[data-key="${CSS.escape(selectedKey)}"]`,
+          );
+          if (movedEl) movedEl.classList.add("selected");
+          setStatus(
+            `Moved STATE HOLD: ${charName} / ${movKey.replace(/_/g, " ")} → F${newStart}–F${newEnd} (${frameToTimestamp(newStart)} – ${frameToTimestamp(newEnd)})`,
+          );
+          return;
+        }
+
+        // ── Signal block move (original) ─────────────────────────────────
+        const sigs = showData?.characters?.[charName]?.signals;
+        if (!sigs) return;
+
+        // Find the exact ON signal at oldStart and its matching OFF at oldEnd
+        let onIdx = -1,
+          offIdx = -1;
+        for (let i = 0; i < sigs.length; i++) {
+          if (
+            sigs[i].movement === movKey &&
+            sigs[i].frame === oldStart &&
+            sigs[i].state === true
+          )
+            onIdx = i;
+        }
+        if (onIdx >= 0) {
+          for (let i = onIdx + 1; i < sigs.length; i++) {
+            if (
+              sigs[i].movement === movKey &&
+              sigs[i].frame === oldEnd &&
+              sigs[i].state === false
+            ) {
+              offIdx = i;
+              break;
+            }
+          }
+        }
+        if (onIdx < 0 || offIdx < 0) {
+          setStatus("✗ Could not locate signals to move.", "#f44");
+          refreshRow(charName, movKey);
+          return;
+        }
+
+        sigs[onIdx].frame = newStart;
+        sigs[onIdx].timestamp = frameToTimestamp(newStart);
+        sigs[offIdx].frame = newEnd;
+        sigs[offIdx].timestamp = frameToTimestamp(newEnd);
+        sigs.sort((a, b) => a.frame - b.frame || (a.state ? 1 : -1));
+
+        selectedKey = `${charName}||${movKey}||${newStart}`;
+        refreshRow(charName, movKey);
+
+        // Re-apply selection highlight on the moved block
+        const movedEl = elTracks.querySelector(
+          `.signal-block[data-key="${CSS.escape(selectedKey)}"]`,
+        );
+        if (movedEl) movedEl.classList.add("selected");
+
+        setStatus(
+          `Moved: ${charName} / ${movKey.replace(/_/g, " ")} → F${newStart}–F${newEnd} (${frameToTimestamp(newStart)} – ${frameToTimestamp(newEnd)})`,
+        );
+      }
+
+      function commitInsert(charName, movKey, startFrame, endFrame) {
+        ensureChar(charName);
+        const bit = getBit(charName, movKey);
+        const sigs = showData.characters[charName].signals;
+        sigs.push({
+          frame: startFrame,
+          timestamp: frameToTimestamp(startFrame),
+          movement: movKey,
+          bit,
+          state: true,
+          note: "",
+        });
+        sigs.push({
+          frame: endFrame,
+          timestamp: frameToTimestamp(endFrame),
+          movement: movKey,
+          bit,
+          state: false,
+          note: "",
+        });
+        sigs.sort((a, b) => a.frame - b.frame || (a.state ? 1 : -1));
+        refreshRow(charName, movKey);
+        setStatus(
+          `Added: ${charName} / ${movKey.replace(/_/g, " ")} F${startFrame}–F${endFrame} (${frameToTimestamp(startFrame)} – ${frameToTimestamp(endFrame)})`,
+        );
+      }
+
+      /**
+       * Insert a state-hold block.  No ON/OFF signals are written — the hold
+       * is expressed by continuously re-pulsing the preceding signal at export time.
+       */
+      function commitStateInsert(charName, movKey, startFrame, endFrame) {
+        ensureChar(charName);
+        if (!showData.characters[charName].state_blocks) {
+          showData.characters[charName].state_blocks = [];
+        }
+        showData.characters[charName].state_blocks.push({
+          movement: movKey,
+          startFrame,
+          endFrame,
+          note: "",
+        });
+        showData.characters[charName].state_blocks.sort(
+          (a, b) => a.startFrame - b.startFrame,
+        );
+        refreshRow(charName, movKey);
+        const heldOn = getMovementStateAtFrame(charName, movKey, startFrame);
+        setStatus(
+          `Added STATE HOLD (${heldOn ? "ON" : "OFF"}): ${charName} / ${movKey.replace(/_/g, " ")} ` +
+            `F${startFrame}–F${endFrame} (${frameToTimestamp(startFrame)} – ${frameToTimestamp(endFrame)})`,
+        );
+      }
+
+      function updateDragPreview(row, startFrame, endFrame) {
+        const x = frameToX(startFrame);
+        const w = Math.max(3, frameToX(endFrame) - x);
+        elDragPreview.style.display = "block";
+        elDragPreview.style.left = x + "px";
+        elDragPreview.style.top = row.offsetTop + 3 + "px";
+        elDragPreview.style.width = w + "px";
+        elDragPreview.style.height = ROW_H - 6 + "px";
+        // Visual distinction: state-mode drag preview is amber-tinted + striped
+        const inStateMode = dragState?.isState ?? drawMode === "state";
+        if (inStateMode) {
+          elDragPreview.style.background =
+            "repeating-linear-gradient(-45deg,rgba(255,180,0,0.35) 0px,rgba(255,180,0,0.35) 5px,rgba(255,180,0,0.1) 5px,rgba(255,180,0,0.1) 10px)";
+          elDragPreview.style.border = "1px dashed rgba(255,180,0,0.7)";
+        } else {
+          elDragPreview.style.background = "rgba(255,255,255,0.3)";
+          elDragPreview.style.border = "1px solid rgba(255,255,255,0.6)";
+        }
+      }
+
+      function hideDragPreview() {
+        elDragPreview.style.display = "none";
+      }
+
+      /* ============================================================
+   RULER  (windowed – canvas is only viewport-wide to avoid the
+           ~65 535 px browser canvas hardware limit)
+   ============================================================ */
+      function drawRuler() {
+        const canvas = elRulerCanvas;
+
+        // Width = visible viewport only; full timeline width lives in
+        // elTracks.style.width so the scrollbar stays correct.
+        const viewW = Math.max(100, elTimelineWrap.clientWidth || 800);
+        const scrollX = elTimelineWrap.scrollLeft || 0;
+
+        canvas.width = viewW; // safe — never exceeds screen width
+        canvas.height = RULER_H;
+        const ctx = canvas.getContext("2d");
+
+        ctx.fillStyle = "#111122";
+        ctx.fillRect(0, 0, viewW, RULER_H);
+
+        // Choose a nice tick interval so major ticks are ~80–200px apart
+        const pxPerSec = zoom * FPS;
+        const secOptions = [0.1, 0.2, 0.5, 1, 2, 5, 10, 30, 60];
+        const majorSec = secOptions.find((s) => s * pxPerSec >= 80) ?? 60;
+        const minorSec = majorSec / 4;
+        const majorF = Math.round(majorSec * FPS);
+        const minorF = Math.max(1, Math.round(minorSec * FPS));
+
+        // Only iterate over frames that are actually visible
+        const firstVisF = Math.max(
+          0,
+          Math.floor(xToFrame(scrollX) / minorF) * minorF - minorF,
+        );
+        const lastVisF = Math.min(
+          totalFrames + majorF,
+          Math.ceil(xToFrame(scrollX + viewW) / minorF) * minorF + minorF,
+        );
+
+        ctx.lineWidth = 1;
+        for (let f = firstVisF; f <= lastVisF; f += minorF) {
+          // Offset by scrollX so ticks land at the correct visual position
+          const x = frameToX(f) - scrollX + 0.5;
+          const isMajor = f % majorF === 0;
+
+          ctx.strokeStyle = isMajor ? "#4a4a6a" : "#252538";
+          ctx.beginPath();
+          ctx.moveTo(x, RULER_H);
+          ctx.lineTo(x, isMajor ? RULER_H - 18 : RULER_H - 8);
+          ctx.stroke();
+
+          if (isMajor) {
+            const ms = frameToMs(f);
+            const m = Math.floor(ms / 60000);
+            const s = String(Math.floor((ms % 60000) / 1000)).padStart(2, "0");
+            const ms3 = String(Math.round(ms % 1000)).padStart(3, "0");
+            ctx.fillStyle = "#9090b8";
+            ctx.font = `11px 'Courier New', monospace`;
+            ctx.textAlign = "left";
+            ctx.fillText(`${m}:${s}`, x + 3, 14);
+            ctx.fillStyle = "#44445a";
+            ctx.fillText(`F${f}`, x + 3, 28);
+          }
+        }
+
+        // Bottom edge line (spans the viewport, not the whole timeline)
+        ctx.strokeStyle = "#22223a";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, RULER_H - 0.5);
+        ctx.lineTo(viewW, RULER_H - 0.5);
+        ctx.stroke();
+      }
+
+      /* ============================================================
+   PLAYHEAD
+   ============================================================ */
+      function updatePlayhead() {
+        elPlayhead.style.left = frameToX(curFrame) + "px";
+        const ms = frameToMs(curFrame);
+        const m = Math.floor(ms / 60000);
+        const s = String(Math.floor((ms % 60000) / 1000)).padStart(2, "0");
+        const ms3 = String(Math.round(ms % 1000)).padStart(3, "0");
+        elTimeDisplay.textContent = `${m}:${s}.${ms3}  /  F${curFrame}`;
+      }
+
+      function seekToFrame(frame) {
+        const wasPlaying = isPlaying;
+        if (wasPlaying) stopPlayback(false);
+        curFrame = Math.max(0, Math.min(totalFrames, frame));
+        updatePlayhead();
+        if (wasPlaying) startPlayback();
+      }
+
+      /* ============================================================
+   AUDIO
+   ============================================================ */
+      function getAudioCtx() {
+        if (!audioCtx || audioCtx.state === "closed")
+          audioCtx = new AudioContext();
+        return audioCtx;
+      }
+
+      function loadWAV(file) {
+        setStatus("Decoding audio…");
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          getAudioCtx()
+            .decodeAudioData(e.target.result.slice(0))
+            .then((buf) => {
+              audioBuffer = buf;
+              enableTransport(true);
+              setStatus(
+                `WAV loaded: ${buf.duration.toFixed(2)}s — ${buf.numberOfChannels}ch @ ${buf.sampleRate}Hz`,
+              );
+            })
+            .catch(() =>
+              setStatus(
+                "✗ Could not decode audio. Use a standard WAV file.",
+                "#f44",
+              ),
+            );
+        };
+        reader.readAsArrayBuffer(file);
+      }
+
+      function enableTransport(on) {
+        elBtnPlay.disabled = !on;
+        elBtnPause.disabled = !on;
+        elBtnStop.disabled = !on;
+      }
+
+      function startPlayback() {
+        if (!audioBuffer) {
+          setStatus("Load a WAV file to enable playback.", "#fa0");
+          return;
+        }
+        const ctx = getAudioCtx();
+        const offsetS = frameToMs(curFrame) / 1000;
+        if (offsetS >= audioBuffer.duration) {
+          stopPlayback();
+          return;
+        }
+
+        if (sourceNode) {
+          try {
+            sourceNode.stop();
+          } catch (_) {}
+        }
+        sourceNode = ctx.createBufferSource();
+        sourceNode.buffer = audioBuffer;
+        sourceNode.connect(ctx.destination);
+        sourceNode.start(0, offsetS);
+        sourceNode.onended = () => {
+          isPlaying = false;
+          cancelAnimationFrame(rafId);
+          if (audioBuffer) elBtnPlay.disabled = false;
+        };
+
+        playAudioStart = ctx.currentTime;
+        playFrameStart = curFrame;
+        isPlaying = true;
+        elBtnPlay.disabled = true;
+
+        const tick = () => {
+          const elapsed = ctx.currentTime - playAudioStart;
+          curFrame = Math.min(
+            totalFrames,
+            playFrameStart + msToFrame(elapsed * 1000),
+          );
+          updatePlayhead();
+
+          // Auto-scroll playhead into view
+          const phX = frameToX(curFrame);
+          const wLeft = elTimelineWrap.scrollLeft;
+          const wW = elTimelineWrap.clientWidth;
+          if (phX > wLeft + wW - 80 || phX < wLeft) {
+            elTimelineWrap.scrollLeft = phX - 60;
+          }
+
+          if (isPlaying && curFrame < totalFrames)
+            rafId = requestAnimationFrame(tick);
+        };
+        rafId = requestAnimationFrame(tick);
+      }
+
+      function pausePlayback() {
+        if (!isPlaying) return;
+        isPlaying = false;
+        cancelAnimationFrame(rafId);
+        if (sourceNode) {
+          try {
+            sourceNode.stop();
+          } catch (_) {}
+          sourceNode = null;
+        }
+        if (audioBuffer) elBtnPlay.disabled = false;
+      }
+
+      function stopPlayback(resetFrame = true) {
+        pausePlayback();
+        if (resetFrame) {
+          curFrame = 0;
+          updatePlayhead();
+        }
+      }
+
+      /* ============================================================
+   ZOOM
+   ============================================================ */
+      function applyZoom(newZoom) {
+        const anchorFrame = curFrame;
+        zoom = Math.max(1, Math.min(40, newZoom));
+        elZoomLabel.textContent = `${zoom}px/fr`;
+
+        const totalW = frameToX(totalFrames) + 300;
+        elTracks.style.width = totalW + "px";
+        for (const el of elTracks.querySelectorAll(
+          ".track-row, .track-char-header",
+        )) {
+          el.style.width = totalW + "px";
+        }
+
+        drawRuler();
+        for (const { charName, movKey, color } of rowMeta)
+          renderBlocks(charName, movKey, color);
+        updatePlayhead();
+
+        // Keep the current playhead roughly centred after zoom
+        elTimelineWrap.scrollLeft = Math.max(
+          0,
+          frameToX(anchorFrame) - elTimelineWrap.clientWidth / 2,
+        );
+      }
+
+      /* ============================================================
+   LOCAL STORAGE — SAVE / LOAD
+   ============================================================ */
+      const LS_PREFIX = "cyberstar_show::";
+
+      function lsSlug(title) {
+        return (
+          LS_PREFIX +
+          (title || "untitled").replace(/[^a-z0-9_\-]/gi, "_").toLowerCase()
+        );
+      }
+
+      function getAllSavedKeys() {
+        return Object.keys(localStorage)
+          .filter((k) => k.startsWith(LS_PREFIX))
+          .sort();
+      }
+
+      function saveToLocalStorage() {
+        if (!showData) return;
+        for (const cd of Object.values(showData.characters))
+          for (const sig of cd.signals)
+            sig.timestamp = frameToTimestamp(sig.frame);
+        showData.version = "3.0";
+        showData.fps = FPS;
+        showData.duration_frames = totalFrames;
+        showData.duration_ms = frameToMs(totalFrames);
+        showData.savedAt = new Date().toISOString();
+        const key = lsSlug(showData.title);
+        try {
+          localStorage.setItem(key, JSON.stringify(showData));
+          setStatus(`💾 Saved "${showData.title}" to browser storage.`);
+        } catch (_) {
+          setStatus("✗ Could not save — browser storage may be full.", "#f44");
+        }
+      }
+
+      function loadFromLocalStorage(key) {
+        try {
+          const obj = JSON.parse(localStorage.getItem(key));
+          if (!obj || !obj.cyberstar_show)
+            throw new Error("Invalid show data.");
+          showData = obj;
+          totalFrames =
+            obj.duration_frames ?? msToFrame(obj.duration_ms ?? 180000);
+          const band = obj.band || "rock";
+          buildRowMeta(band);
+          buildEditor();
+          document.getElementById("show-title").textContent =
+            obj.title || "Untitled";
+          const badge = document.getElementById("band-badge");
+          badge.textContent = "RFE";
+          badge.className = "band-badge band-rock";
+          badge.style.display = "";
+          document.getElementById("btn-save").disabled = false;
+          document.getElementById("btn-export-4ch").disabled = false;
+          const cueCount = Object.values(obj.characters).reduce(
+            (n, c) => n + c.signals.length,
+            0,
+          );
+          setStatus(
+            `Loaded "${obj.title}" from browser storage — ${totalFrames} frames, ${cueCount} signal cues.`,
+          );
+        } catch (err) {
+          setStatus(`✗ ${err.message}`, "#f44");
+        }
+      }
+
+      function deleteFromLocalStorage(key) {
+        try {
+          const data = JSON.parse(localStorage.getItem(key));
+          const title = data?.title || key;
+          localStorage.removeItem(key);
+          setStatus(`Deleted "${title}" from browser storage.`);
+        } catch (_) {
+          localStorage.removeItem(key);
+        }
+      }
+
+      function openSavedShowsModal() {
+        const list = document.getElementById("ss-list");
+        const keys = getAllSavedKeys();
+        list.innerHTML = "";
+
+        if (keys.length === 0) {
+          list.innerHTML =
+            '<p style="color:#555570;text-align:center;padding:24px 0;">No saved shows yet.<br><br>Open a show and click 💾 Save to save it here.</p>';
+        } else {
+          for (const key of keys) {
+            try {
+              const data = JSON.parse(localStorage.getItem(key));
+              const savedAt = data.savedAt
+                ? new Date(data.savedAt).toLocaleString()
+                : "Unknown date";
+              const dur = frameToTimestamp(data.duration_frames || 0);
+              const bandLabel = "RFE";
+              const item = document.createElement("div");
+              item.className = "ss-item";
+              item.innerHTML = `
+                <div class="ss-item-info">
+                  <span class="ss-item-title">${data.title || "(Untitled)"}</span>
+                  <span class="ss-item-meta">${bandLabel} &middot; ${dur} &middot; Saved ${savedAt}</span>
+                </div>
+                <div class="ss-item-actions">
+                  <button class="tb-btn" data-load="${key}">Open</button>
+                  <button class="tb-btn" style="color:#ff6666;border-color:#ff444433;" data-del="${key}" title="Delete save">✕</button>
+                </div>`;
+              list.appendChild(item);
+            } catch (_) {}
+          }
+        }
+
+        list._ssHandler && list.removeEventListener("click", list._ssHandler);
+        list._ssHandler = (e) => {
+          const loadKey = e.target.closest("[data-load]")?.dataset.load;
+          const delKey = e.target.closest("[data-del]")?.dataset.del;
+          if (loadKey) {
+            loadFromLocalStorage(loadKey);
+            closeSavedShowsModal();
+          }
+          if (delKey) {
+            deleteFromLocalStorage(delKey);
+            openSavedShowsModal();
+          }
+        };
+        list.addEventListener("click", list._ssHandler);
+
+        document.getElementById("saved-shows-overlay").classList.add("open");
+      }
+
+      function closeSavedShowsModal() {
+        document.getElementById("saved-shows-overlay").classList.remove("open");
+      }
+
+      /* ============================================================
+   INIT
+   ============================================================ */
+      document.addEventListener("DOMContentLoaded", () => {
+        elEditorBody = document.getElementById("editor-body");
+        elEmptyState = document.getElementById("empty-state");
+        elLabelScroll = document.getElementById("label-scroll");
+        elTimelineWrap = document.getElementById("timeline-wrap");
+        elRulerCanvas = document.getElementById("ruler-canvas");
+        elTracks = document.getElementById("tracks-container");
+        elPlayhead = document.getElementById("playhead");
+        elDragPreview = document.getElementById("drag-preview");
+        elStatus = document.getElementById("status-bar");
+        elTimeDisplay = document.getElementById("time-display");
+        elZoomLabel = document.getElementById("zoom-label");
+        elBtnPlay = document.getElementById("btn-play");
+        elBtnPause = document.getElementById("btn-pause");
+        elBtnStop = document.getElementById("btn-stop");
+        elBtnSnap = document.getElementById("btn-snap");
+        elBtnStateMode = document.getElementById("btn-state-mode");
+        elSnapLine = document.getElementById("snap-line");
+
+        // File inputs
+        function bindFile(id, fn) {
+          const el = document.getElementById(id);
+          if (el)
+            el.addEventListener("change", () => {
+              if (el.files[0]) fn(el.files[0]);
+            });
+        }
+        bindFile("wav-input", loadWAV);
+
+        // New Show buttons + modal
+        document
+          .getElementById("btn-new-show")
+          .addEventListener("click", openNewShowModal);
+        document
+          .getElementById("btn-new-show-empty")
+          .addEventListener("click", openNewShowModal);
+        document
+          .getElementById("ns-create")
+          .addEventListener("click", createNewShow);
+        document
+          .getElementById("ns-cancel")
+          .addEventListener("click", closeNewShowModal);
+        document
+          .getElementById("new-show-overlay")
+          .addEventListener("click", (e) => {
+            if (e.target === document.getElementById("new-show-overlay"))
+              closeNewShowModal();
+          });
+        document.getElementById("ns-title").addEventListener("keydown", (e) => {
+          if (e.key === "Enter") createNewShow();
+          if (e.key === "Escape") closeNewShowModal();
+        });
+
+        // Transport
+        elBtnPlay.addEventListener("click", startPlayback);
+        elBtnPause.addEventListener("click", pausePlayback);
+        elBtnStop.addEventListener("click", () => stopPlayback(true));
+        elBtnSnap.addEventListener("click", toggleSnap);
+        elBtnStateMode.addEventListener("click", toggleStateMode);
+        document
+          .getElementById("btn-save")
+          .addEventListener("click", saveToLocalStorage);
+        document
+          .getElementById("btn-saved-shows")
+          .addEventListener("click", openSavedShowsModal);
+        document
+          .getElementById("ss-close")
+          .addEventListener("click", closeSavedShowsModal);
+        document
+          .getElementById("saved-shows-overlay")
+          .addEventListener("click", (e) => {
+            if (e.target === document.getElementById("saved-shows-overlay"))
+              closeSavedShowsModal();
+          });
+
+        // Zoom buttons
+        document
+          .getElementById("btn-zoom-in")
+          .addEventListener("click", () => applyZoom(zoom + 1));
+        document
+          .getElementById("btn-zoom-out")
+          .addEventListener("click", () => applyZoom(zoom - 1));
+
+        // Scroll wheel on timeline → horizontal scroll (DAW-style feel)
+        elTimelineWrap.addEventListener(
+          "wheel",
+          (e) => {
+            if (!e.shiftKey && Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+              e.preventDefault();
+              elTimelineWrap.scrollLeft += e.deltaY;
+            }
+          },
+          { passive: false },
+        );
+
+        // Sync label panel vertical scroll with timeline vertical scroll;
+        // also redraw the windowed ruler as horizontal scroll position changes.
+        elTimelineWrap.addEventListener("scroll", () => {
+          elLabelScroll.scrollTop = elTimelineWrap.scrollTop;
+          drawRuler();
+        });
+
+        // Redraw ruler when the window is resized (viewport width changes).
+        window.addEventListener("resize", () => drawRuler());
+
+        // Ruler click → seek
+        elRulerCanvas.addEventListener("click", (e) => {
+          if (!showData) return;
+          // Canvas is now viewport-wide (windowed), so add scrollLeft to
+          // convert the click's canvas-local X into timeline X.
+          const frame = xToFrame(e.offsetX + elTimelineWrap.scrollLeft);
+          seekToFrame(frame);
+          // scroll playhead into view if needed
+          elTimelineWrap.scrollLeft = Math.max(
+            0,
+            frameToX(frame) - elTimelineWrap.clientWidth / 3,
+          );
+        });
+
+        // Global drag
+        document.addEventListener("mousemove", onMouseMove);
+        document.addEventListener("mouseup", onMouseUp);
+
+        // Keyboard shortcuts
+        document.addEventListener("keydown", (e) => {
+          const tag = document.activeElement.tagName;
+          if (tag === "INPUT" || tag === "TEXTAREA") return;
+
+          if (e.code === "Delete" || e.code === "Backspace") {
+            e.preventDefault();
+            deleteSelected();
+          }
+          if (e.code === "Space") {
+            e.preventDefault();
+            if (isPlaying) pausePlayback();
+            else startPlayback();
+          }
+          if (e.code === "Home") seekToFrame(0);
+          if (e.code === "End") seekToFrame(totalFrames);
+          if (e.code === "ArrowLeft")
+            seekToFrame(curFrame - (e.shiftKey ? 50 : 5));
+          if (e.code === "ArrowRight")
+            seekToFrame(curFrame + (e.shiftKey ? 50 : 5));
+          if (e.code === "Equal" || e.code === "NumpadAdd") applyZoom(zoom + 1);
+          if (e.code === "Minus" || e.code === "NumpadSubtract")
+            applyZoom(zoom - 1);
+          if (e.code === "KeyS" && !e.ctrlKey && !e.metaKey) toggleSnap();
+          if (e.code === "KeyT" && !e.ctrlKey && !e.metaKey) toggleStateMode();
+          if ((e.ctrlKey || e.metaKey) && e.code === "KeyS") {
+            e.preventDefault();
+            saveToLocalStorage();
+          }
+          if ((e.ctrlKey || e.metaKey) && e.code === "KeyC") {
+            e.preventDefault();
+            copySelected();
+          }
+          if ((e.ctrlKey || e.metaKey) && e.code === "KeyV") {
+            e.preventDefault();
+            pasteClipboard();
+          }
+          if ((e.ctrlKey || e.metaKey) && e.code === "KeyD") {
+            e.preventDefault();
+            copySelected();
+            pasteClipboard();
+          }
+          if (e.code === "Escape") {
+            clearSelection();
+            setStatus("Selection cleared.");
+          }
+        });
+      });
+    </script>
+
+    <script>
+      /* ==================================================================
+         SCME BRIDGE — 4ch WAV Export · Tester Validation · .rshw Export
+         All Python is run in isolated exec() namespaces so the three
+         bridge files never clobber each other's internal helpers.
+         ================================================================== */
+      (function () {
+        /* ── Progress modal controller ────────────────────────────── */
+        const _edModal = {
+          _el: document.getElementById("ed-py-modal"),
+          _title: document.getElementById("ed-py-modal-title"),
+          _msg: document.getElementById("ed-py-modal-msg"),
+          _bar: document.getElementById("ed-py-modal-bar"),
+          show(title, msg, pct = 0) {
+            if (this._title) this._title.textContent = title;
+            if (this._msg) this._msg.textContent = msg;
+            if (this._bar) this._bar.style.width = pct + "%";
+            if (this._el) this._el.removeAttribute("hidden");
+          },
+          step(msg, pct) {
+            if (this._msg) this._msg.textContent = msg;
+            if (this._bar) this._bar.style.width = pct + "%";
+          },
+          hide() {
+            if (this._el) this._el.setAttribute("hidden", "");
+          },
+        };
+
+        /* ── Pyodide singleton ─────────────────────────────────── */
+        let _py = null;
+        let _pyLoading = false;
+        let _exportNsLoaded = false;
+        let _vizNsLoaded = false;
+        let _rshwNsLoaded = false;
+
+        async function _ensurePy(title = "Loading Python Runtime") {
+          if (_py) return _py;
+          if (_pyLoading) {
+            while (!_py) await new Promise((r) => setTimeout(r, 100));
+            return _py;
+          }
+          _pyLoading = true;
+          _edModal.show(
+            title,
+            "Downloading Python WebAssembly runtime (~30 MB)…",
+            5,
+          );
+          // Reuse instance already loaded by signal-visualizer.js if available
+          if (window._svizPyodide) {
+            _py = window._svizPyodide;
+            _pyLoading = false;
+            return _py;
+          }
+          if (typeof loadPyodide === "undefined") {
+            _edModal.step("Fetching Pyodide script…", 8);
+            await new Promise((resolve, reject) => {
+              const s = document.createElement("script");
+              s.src =
+                "https://cdn.jsdelivr.net/pyodide/v0.27.0/full/pyodide.js";
+              s.onload = resolve;
+              s.onerror = reject;
+              document.head.appendChild(s);
+            });
+          }
+          _edModal.step("Initialising Python WebAssembly VM…", 20);
+          _py = window._svizPyodide = await loadPyodide();
+          _pyLoading = false;
+          return _py;
+        }
+
+        // Load a Python source file into an isolated exec() namespace.
+        // The namespace is stored as a Python global `nsVar` so it can
+        // be called via py.runPython without polluting the shared namespace.
+        async function _loadNs(py, url, nsVar, label, p1, p2) {
+          _edModal.step("Loading " + label + "…", p1);
+          const src = await (await fetch(url)).text();
+          _edModal.step("Compiling " + label + "…", p2);
+          py.globals.set("_ed_tmp_src", src);
+          await py.runPythonAsync(
+            "_ed_tmp_ns = {}\nexec(_ed_tmp_src, _ed_tmp_ns)\n" +
+              nsVar +
+              " = _ed_tmp_ns",
+          );
+          // Clean up temps
+          py.globals.set("_ed_tmp_src", null);
+          py.globals.set("_ed_tmp_ns", null);
+        }
+
+        async function _ensureExportBridge(py) {
+          if (_exportNsLoaded) return;
+          await _loadNs(
+            py,
+            "SCME/SGM/export_bridge.py",
+            "_ed_export_ns",
+            "export bridge",
+            38,
+            55,
+          );
+          _exportNsLoaded = true;
+        }
+        async function _ensureVizBridge(py) {
+          if (_vizNsLoaded) return;
+          await _loadNs(
+            py,
+            "SCME/SViz/visualizer_bridge.py",
+            "_ed_viz_ns",
+            "signal analysis bridge",
+            38,
+            55,
+          );
+          _vizNsLoaded = true;
+        }
+        async function _ensureRshwBuilder(py) {
+          if (_rshwNsLoaded) return;
+          await _loadNs(
+            py,
+            "SCME/SGM/rshw_builder.py",
+            "_ed_rshw_ns",
+            ".rshw builder",
+            38,
+            55,
+          );
+          _rshwNsLoaded = true;
+        }
+
+        /* ── Shared helpers ────────────────────────────────────── */
+        function _f32ToI16(f32) {
+          const out = new Int16Array(f32.length);
+          for (let i = 0; i < f32.length; i++) {
+            const v = Math.max(-1, Math.min(1, f32[i]));
+            out[i] = v < 0 ? v * 32768 : v * 32767;
+          }
+          return out;
+        }
+
+        function _encodeMultiChWAV(channels, sr) {
+          const nCh = channels.length;
+          const nSamp = channels[0].length;
+          const bAlign = nCh * 2;
+          const dataSz = nSamp * bAlign;
+          const buf = new ArrayBuffer(44 + dataSz);
+          const dv = new DataView(buf);
+          let p = 0;
+          const u8 = (x) => {
+            dv.setUint8(p++, x);
+          };
+          const u16 = (x) => {
+            dv.setUint16(p, x, true);
+            p += 2;
+          };
+          const u32 = (x) => {
+            dv.setUint32(p, x, true);
+            p += 4;
+          };
+          const str = (s) => {
+            for (let i = 0; i < s.length; i++) u8(s.charCodeAt(i));
+          };
+          str("RIFF");
+          u32(36 + dataSz);
+          str("WAVE");
+          str("fmt ");
+          u32(16);
+          u16(1);
+          u16(nCh);
+          u32(sr);
+          u32(sr * bAlign);
+          u16(bAlign);
+          u16(16);
+          str("data");
+          u32(dataSz);
+          for (let i = 0; i < nSamp; i++) {
+            for (let c = 0; c < nCh; c++) {
+              const x = Math.max(-1, Math.min(1, channels[c][i] ?? 0));
+              dv.setInt16(p, x < 0 ? x * 32768 : x * 32767, true);
+              p += 2;
+            }
+          }
+          return buf;
+        }
+
+        function _download(blob, name) {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = name;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 10000);
+        }
+
+        function _fmtTime(s) {
+          return (
+            Math.floor(s / 60) +
+            ":" +
+            String(Math.floor(s % 60)).padStart(2, "0")
+          );
+        }
+
+        // Convert showData.characters into the sequence list that export_bridge expects
+        function _showToSeqs() {
+          if (!showData) return [];
+          const out = [];
+          for (const [charName, cd] of Object.entries(showData.characters)) {
+            for (const sig of cd.signals) {
+              out.push({
+                time_ms: frameToMs(sig.frame),
+                character: charName,
+                movement: sig.movement,
+                state: sig.state,
+              });
+            }
+          }
+          return out;
+        }
+
+        /* ==============================================================
+           4ch WAV EXPORT
+           ============================================================== */
+        async function export4chWAV() {
+          if (!showData) return;
+          const showTitle = showData.title || "show";
+          try {
+            const py = await _ensurePy("Exporting 4-Channel WAV");
+            await _ensureExportBridge(py);
+
+            _edModal.step("Collecting show cues…", 62);
+            const seqs = _showToSeqs();
+            const durMs = frameToMs(totalFrames);
+            const seqsJson = JSON.stringify(seqs);
+
+            _edModal.step("Rendering BMC signal tracks…", 68);
+            py.globals.set("_ed_seqs_json", seqsJson);
+            py.globals.set("_ed_dur_ms", durMs);
+            const resultJson = py.runPython(
+              "_ed_export_ns['render_4ch_pcm_json'](_ed_seqs_json, _ed_dur_ms)",
+            );
+            const result = JSON.parse(resultJson);
+            if (result.error) throw new Error(result.error);
+
+            _edModal.step("Decoding PCM data…", 78);
+            const tdRaw = Uint8Array.from(atob(result.td_b64), (c) =>
+              c.charCodeAt(0),
+            );
+            const bdRaw = Uint8Array.from(atob(result.bd_b64), (c) =>
+              c.charCodeAt(0),
+            );
+            const tdI16 = new Int16Array(tdRaw.buffer);
+            const bdI16 = new Int16Array(bdRaw.buffer);
+            const n = Math.max(tdI16.length, bdI16.length);
+            const tdF32 = new Float32Array(n);
+            const bdF32 = new Float32Array(n);
+            for (let i = 0; i < tdI16.length; i++) tdF32[i] = tdI16[i] / 32768;
+            for (let i = 0; i < bdI16.length; i++) bdF32[i] = bdI16[i] / 32768;
+
+            _edModal.step("Assembling 4-channel WAV…", 88);
+            const musL = new Float32Array(n);
+            const musR = new Float32Array(n);
+            if (audioBuffer) {
+              const s0 = audioBuffer.getChannelData(0);
+              musL.set(s0.subarray(0, Math.min(s0.length, n)));
+              const s1 =
+                audioBuffer.numberOfChannels > 1
+                  ? audioBuffer.getChannelData(1)
+                  : s0;
+              musR.set(s1.subarray(0, Math.min(s1.length, n)));
+            }
+            const wavBuf = _encodeMultiChWAV(
+              [musL, musR, tdF32, bdF32],
+              result.sample_rate,
+            );
+            _download(
+              new Blob([wavBuf], { type: "audio/wav" }),
+              showTitle.replace(/[^a-z0-9_\-]/gi, "_") + "_4ch.wav",
+            );
+            _edModal.step("Done!", 100);
+            setTimeout(() => _edModal.hide(), 600);
+            const skip = result.skipped || 0;
+            setStatus(
+              `Exported 4ch WAV — ${seqs.length} cues${skip ? `, ${skip} unmapped` : "."}`,
+            );
+          } catch (err) {
+            _edModal.hide();
+            setStatus("\u2717 Export failed: " + err.message, "#f44");
+            console.error(err);
+          }
+        }
+
+        /* ==============================================================
+           TESTER
+           ============================================================== */
+        let _tBuf = null; // AudioBuffer of validated 4ch WAV (null in live mode)
+        let _tRaw = null; // Uint8Array raw 4ch WAV bytes for .rshw export
+        let _tCtx = null; // AudioContext
+        let _tSrc = null; // BufferSourceNode
+        let _tPlay = false;
+        let _tPlayStart = 0; // kept for reference; timing now uses _tPlayPerf
+        let _tPlayPerf = 0; // performance.now()/1000 at play start (reliable clock)
+        let _tCurTime = 0;
+        let _tRAF = null;
+        let _tValidated = false; // true once 4ch WAV passes validation
+        // ── Live-mode event queue (event-driven state machine) ──────────────
+        // Each entry: { timeSec, charName, movKey, on: bool }
+        // Sorted by timeSec ascending; mirrors the ON/OFF events in showData.
+        let _tLiveEvents = [];
+        let _tLiveEventIdx = 0; // next unprocessed index (advances during playback)
+        let _tLiveState = {}; // "charName||movKey" → current boolean; snapshot for seeking
+        let _tLiveDur = 0; // show duration in seconds (live mode)
+        // Volume (0.0–1.0); gain nodes recreated per _tStart
+        let _tMusicVol = 1.0;
+        let _tSigVol = 1.0;
+        let _tMusGainL = null,
+          _tMusGainR = null;
+        let _tSigGainL = null,
+          _tSigGainR = null;
+
+        // Build a sorted event list from showData.
+        // Each entry is one ON or OFF transition that the editor has recorded.
+        // This is the same logical signal data the hardware processes — we're
+        // just reading it from the JS store instead of decoding a BMC channel.
+        function _showDataToEvents() {
+          const evs = [];
+          if (!showData) return evs;
+          for (const [charName, cd] of Object.entries(showData.characters)) {
+            for (const sig of cd.signals) {
+              evs.push({
+                timeSec: frameToMs(sig.frame) / 1000,
+                charName,
+                movKey: sig.movement,
+                on: sig.state === true || sig.state === 1,
+              });
+            }
+          }
+          // Sort by time; ties: ON before OFF (same as hardware frame priority)
+          evs.sort((a, b) => a.timeSec - b.timeSec || (b.on ? 1 : -1));
+          return evs;
+        }
+
+        // Seek the live state machine to `timeSec`.
+        // Replays events from the beginning to compute accurate LED state,
+        // then applies it to the DOM.  O(events before timeSec).
+        function _tLiveSeekTo(timeSec) {
+          // Reset all LEDs
+          const arena = document.getElementById("tester-arena");
+          if (arena)
+            arena
+              .querySelectorAll(".tester-movement")
+              .forEach((el) => el.classList.remove("active"));
+          _tLiveState = {};
+          _tLiveEventIdx = 0;
+          // Fast-forward: process every event whose time is ≤ target
+          while (
+            _tLiveEventIdx < _tLiveEvents.length &&
+            _tLiveEvents[_tLiveEventIdx].timeSec <= timeSec
+          ) {
+            const ev = _tLiveEvents[_tLiveEventIdx++];
+            _tLiveState[ev.charName + "||" + ev.movKey] = ev.on;
+          }
+          // Apply snapshot to LEDs
+          if (arena) {
+            for (const [key, on] of Object.entries(_tLiveState)) {
+              const sep = key.indexOf("||");
+              const char = key.slice(0, sep);
+              const mov = key.slice(sep + 2);
+              const el = arena.querySelector(
+                `[data-char="${char}"][data-mov="${mov}"]`,
+              );
+              if (el) el.classList.toggle("active", on);
+            }
+          }
+        }
+
+        // Build the stage arena from showData + CHARACTER_MOVEMENTS (no Python needed).
+        // Resets live timeline and enables transport if editor song is loaded.
+        function _tBuildLiveStage() {
+          const arena = document.getElementById("tester-arena");
+          const btPlay = document.getElementById("tester-play");
+          const btPause = document.getElementById("tester-pause");
+          const btStop = document.getElementById("tester-stop");
+          const prog = document.getElementById("tester-progress");
+          const te = document.getElementById("tester-time");
+
+          if (!showData || typeof CHARACTER_MOVEMENTS === "undefined") {
+            arena.innerHTML =
+              '<span style="color:var(--muted);font-size:0.82em;align-self:center">Open a show in the editor to activate the stage.</span>';
+            [btPlay, btPause, btStop].forEach((b) => {
+              if (b) b.disabled = true;
+            });
+            if (prog) prog.disabled = true;
+            return;
+          }
+
+          // (Re-)build character cards
+          arena.innerHTML = "";
+          for (const charName of _RAE_ORDER) {
+            if (!CHARACTER_MOVEMENTS[charName]) continue;
+            const cEntry = CHARACTER_MOVEMENTS[charName];
+            const color = _TCHAR_COLORS[charName] || "#888899";
+            const card = document.createElement("div");
+            card.className = "tester-character";
+            card.innerHTML = `
+              <div class="tester-char-header" style="border-bottom-color:${color}44">
+                <h3 style="color:${color}">${charName}</h3>
+              </div>
+              <div class="tester-movements">
+                ${Object.keys(cEntry.movements)
+                  .map(
+                    (mov) => `
+                  <div class="tester-movement" data-char="${charName}" data-mov="${mov}">
+                    <span class="tester-mov-name">${mov.replace(/_/g, " ")}</span>
+                    <span class="tester-mov-led"></span>
+                  </div>`,
+                  )
+                  .join("")}
+              </div>`;
+            arena.appendChild(card);
+          }
+          // Clear any stale 4ch data (stays until next validation)
+          arena._4chTimeline = null;
+          arena._bitToStage = null;
+
+          // Build event queue and reset state machine to t=0
+          _tLiveDur = frameToMs(totalFrames) / 1000;
+          _tLiveEvents = _showDataToEvents();
+          _tLiveSeekTo(0);
+
+          // Enable transport — visualization always works; audio needs a song
+          if (btPlay) btPlay.disabled = false;
+          if (btPause) btPause.disabled = false;
+          if (btStop) btStop.disabled = false;
+          if (prog) {
+            prog.value = 0;
+            prog.disabled = false;
+          }
+          if (te) te.textContent = "00:00 / " + _fmtTime(_tLiveDur);
+          if (!audioBuffer)
+            setStatus(
+              "Tester: load a song WAV in the editor to enable audio playback.",
+              "#fa0",
+            );
+        }
+
+        const _TCHAR_COLORS = {
+          Rolfe: "#00c8ff",
+          Earl: "#ff9800",
+          "Dook LaRue": "#4caf50",
+          Fatz: "#b44ff4",
+          "Beach Bear": "#e91e63",
+          "Looney Bird": "#ffe000",
+          Mitzi: "#ff6e40",
+          "Billy Bob": "#00e5cc",
+          Lights: "#aaaaaa",
+        };
+        const _RAE_ORDER = [
+          "Rolfe",
+          "Earl",
+          "Dook LaRue",
+          "Fatz",
+          "Beach Bear",
+          "Looney Bird",
+          "Mitzi",
+          "Billy Bob",
+          "Lights",
+        ];
+
+        function _tStop(resetTime = true) {
+          _tPlay = false;
+          cancelAnimationFrame(_tRAF);
+          if (_tSrc) {
+            try {
+              _tSrc.stop();
+            } catch (_) {}
+            _tSrc = null;
+          }
+          if (resetTime) {
+            _tCurTime = 0;
+            const dur = _tBuf ? _tBuf.duration : _tLiveDur;
+            const pg = document.getElementById("tester-progress");
+            if (pg) pg.value = 0;
+            const te = document.getElementById("tester-time");
+            if (te) te.textContent = "00:00 / " + _fmtTime(dur);
+            // Reset live state machine to beginning
+            if (!_tBuf) _tLiveSeekTo(0);
+          }
+          const pb = document.getElementById("tester-play");
+          // Re-enable play if we have a 4ch buffer OR a live show loaded
+          if (pb) pb.disabled = !(_tBuf || showData);
+        }
+
+        function _tPause() {
+          if (!_tPlay) return;
+          _tPlay = false;
+          cancelAnimationFrame(_tRAF);
+          if (_tSrc) {
+            try {
+              _tSrc.stop();
+            } catch (_) {}
+            _tSrc = null;
+          }
+          const pb = document.getElementById("tester-play");
+          if (pb) pb.disabled = false;
+        }
+
+        function _tStart() {
+          const isLive = !_tBuf;
+
+          // In 4ch mode we must have the decoded buffer.
+          // In live mode we can run visualization even without an audio file.
+          if (!isLive && !_tBuf) return;
+          if (isLive && !showData) return;
+
+          const dur = isLive ? _tLiveDur : _tBuf.duration;
+          if (!dur) return;
+
+          // Stop any in-flight source
+          if (_tSrc) {
+            try {
+              _tSrc.stop();
+            } catch (_) {}
+            _tSrc = null;
+          }
+
+          const offset = _tCurTime; // current seek position
+
+          // Re-sync live event pointer to the current playhead position.
+          // This is defensive and handles every seek/pause/resume path.
+          if (isLive) _tLiveSeekTo(offset);
+
+          _tPlay = true;
+          document.getElementById("tester-play").disabled = true;
+
+          // ── Visualization clock ──────────────────────────────────────────
+          // We track time with performance.now() — always advances, completely
+          // independent of AudioContext state. This fixes the bug where a
+          // suspended AudioContext caused _tCurTime to freeze at 0 and no
+          // LED events ever fired.
+          _tPlayPerf = performance.now() / 1000 - offset;
+
+          const arena = document.getElementById("tester-arena");
+
+          const tick = () => {
+            _tCurTime = Math.min(dur, performance.now() / 1000 - _tPlayPerf);
+            const pg = document.getElementById("tester-progress");
+            const te = document.getElementById("tester-time");
+            if (pg) pg.value = dur > 0 ? (_tCurTime / dur) * 100 : 0;
+            if (te)
+              te.textContent = _fmtTime(_tCurTime) + " / " + _fmtTime(dur);
+
+            if (_tBuf && arena._4chTimeline) {
+              // 4ch validated mode: drive from decoded channel timeline
+              const b2s = arena._bitToStage || new Map();
+              const activeCh = new Set();
+              for (const ev of arena._4chTimeline)
+                if (ev.t_on <= _tCurTime && _tCurTime < ev.t_off)
+                  activeCh.add(ev.channel);
+              for (const [chName, info] of b2s) {
+                const el = arena.querySelector(
+                  `[data-char="${info.charName}"][data-mov="${info.movKey}"]`,
+                );
+                if (el) el.classList.toggle("active", activeCh.has(chName));
+              }
+            } else {
+              // Live mode — advance the event pointer, apply each transition.
+              // Only processes events that have newly become due since last tick.
+              while (
+                _tLiveEventIdx < _tLiveEvents.length &&
+                _tLiveEvents[_tLiveEventIdx].timeSec <= _tCurTime
+              ) {
+                const ev = _tLiveEvents[_tLiveEventIdx++];
+                _tLiveState[ev.charName + "||" + ev.movKey] = ev.on;
+                const el = arena.querySelector(
+                  `[data-char="${ev.charName}"][data-mov="${ev.movKey}"]`,
+                );
+                if (el) el.classList.toggle("active", ev.on);
+              }
+            }
+
+            if (_tPlay && _tCurTime < dur) {
+              _tRAF = requestAnimationFrame(tick);
+            } else if (_tCurTime >= dur) {
+              // Reached end of show
+              _tPlay = false;
+              const pb = document.getElementById("tester-play");
+              if (pb) pb.disabled = !(_tBuf || showData);
+            }
+          };
+          _tRAF = requestAnimationFrame(tick);
+
+          // ── Audio ────────────────────────────────────────────────────────
+          // Audio is started after the AudioContext is confirmed running.
+          // We call resume() unconditionally to handle the browser's
+          // auto-suspend (which freezes currentTime and blocks playback).
+          const srcBuf = isLive ? audioBuffer : _tBuf;
+          if (srcBuf) {
+            if (!_tCtx || _tCtx.state === "closed") _tCtx = new AudioContext();
+            const _doStartAudio = () => {
+              const audioOffset = Math.min(
+                offset,
+                Math.max(0, srcBuf.duration - 0.001),
+              );
+              _tSrc = _tCtx.createBufferSource();
+              _tSrc.buffer = srcBuf;
+
+              if (!isLive) {
+                // 4ch mode: splitter/merger with per-track gain nodes
+                //   Ch0 = Music L  Ch1 = Music R  Ch2 = TD BMC  Ch3 = BD BMC
+                const nCh = _tBuf.numberOfChannels;
+                const splitter = _tCtx.createChannelSplitter(nCh);
+                const merger = _tCtx.createChannelMerger(2);
+                _tMusGainL = _tCtx.createGain();
+                _tMusGainL.gain.value = _tMusicVol;
+                _tMusGainR = _tCtx.createGain();
+                _tMusGainR.gain.value = _tMusicVol;
+                _tSigGainL = _tCtx.createGain();
+                _tSigGainL.gain.value = _tSigVol;
+                _tSigGainR = _tCtx.createGain();
+                _tSigGainR.gain.value = _tSigVol;
+                _tSrc.connect(splitter);
+                splitter.connect(_tMusGainL, 0);
+                _tMusGainL.connect(merger, 0, 0);
+                splitter.connect(_tMusGainR, 1);
+                _tMusGainR.connect(merger, 0, 1);
+                if (nCh >= 3) {
+                  splitter.connect(_tSigGainL, 2);
+                  _tSigGainL.connect(merger, 0, 0);
+                }
+                if (nCh >= 4) {
+                  splitter.connect(_tSigGainR, 3);
+                  _tSigGainR.connect(merger, 0, 1);
+                }
+                merger.connect(_tCtx.destination);
+              } else {
+                // Live mode: play the editor song (typically stereo)
+                _tMusGainL = _tCtx.createGain();
+                _tMusGainL.gain.value = _tMusicVol;
+                _tMusGainR = null;
+                _tSigGainL = null;
+                _tSigGainR = null;
+                _tSrc.connect(_tMusGainL);
+                _tMusGainL.connect(_tCtx.destination);
+              }
+
+              _tSrc.start(0, audioOffset);
+              // Note: audio ending does NOT stop the visualization tick —
+              // the show may contain signal events that outlast the song,
+              // and the tick terminates naturally at dur.
+            };
+            // resume() handles the "suspended" state the browser puts the
+            // context into after a period of inactivity.
+            _tCtx.resume().then(_doStartAudio).catch(_doStartAudio);
+          }
+        }
+
+        // Update arena with 4ch validation data (does NOT rebuild HTML cards).
+        function _tBuild4chData(py, arena, result) {
+          let chanMap = { td: {}, bd: {} };
+          try {
+            chanMap = JSON.parse(
+              py.runPython("_ed_viz_ns['get_channel_maps_json']()"),
+            );
+          } catch (_) {}
+
+          const b2s = new Map();
+          if (typeof CHARACTER_MOVEMENTS !== "undefined") {
+            const raeSet = new Set(_RAE_ORDER);
+            for (const [charName, cEntry] of Object.entries(
+              CHARACTER_MOVEMENTS,
+            )) {
+              if (!raeSet.has(charName)) continue;
+              for (const [movKey, mData] of Object.entries(cEntry.movements)) {
+                const dict = mData.track === "TD" ? chanMap.td : chanMap.bd;
+                const chName = dict[String(mData.bit + 1)];
+                if (chName) b2s.set(chName, { charName, movKey });
+              }
+            }
+          }
+          arena._4chTimeline = result.channel_timeline || [];
+          arena._bitToStage = b2s;
+        }
+
+        // Load and validate a 4ch WAV for .rshw export.
+        // Stage cards are already built by _tBuildLiveStage(); this only
+        // stores _tBuf/_tRaw and unlocks .rshw on PASS.
+        async function _loadTesterWAV(file) {
+          const nameEl = document.getElementById("tester-wav-name");
+          const badge = document.getElementById("tester-val-badge");
+          const btRshw = document.getElementById("tester-export-rshw");
+          const arena = document.getElementById("tester-arena");
+
+          nameEl.textContent = file.name;
+          if (badge) {
+            badge.textContent = "Validating…";
+            badge.className = "tester-val-badge pending";
+          }
+          if (btRshw) btRshw.disabled = true;
+          _tValidated = false;
+          // Reset 4ch sources but keep live mode running
+          _tBuf = null;
+          _tRaw = null;
+          arena._4chTimeline = null;
+          arena._bitToStage = null;
+
+          try {
+            const py = await _ensurePy("Analysing 4-Channel WAV");
+            await _ensureVizBridge(py);
+
+            _edModal.step("Reading file…", 60);
+            const ab = await file.arrayBuffer();
+            _tRaw = new Uint8Array(ab.slice(0));
+
+            _edModal.step("Decoding audio…", 66);
+            const decCtx = new (
+              window.AudioContext || window.webkitAudioContext
+            )();
+            const tmpBuf = await decCtx.decodeAudioData(ab.slice(0));
+            await decCtx.close();
+
+            if (tmpBuf.numberOfChannels !== 4) {
+              _tRaw = null;
+              const got = tmpBuf.numberOfChannels;
+              if (badge) {
+                badge.textContent = `FAIL — ${got}ch WAV`;
+                badge.className = "tester-val-badge fail";
+              }
+              _edModal.hide();
+              setStatus(
+                `Validate: expected 4ch WAV, got ${got} channels.`,
+                "#f44",
+              );
+              return;
+            }
+
+            const tdI16 = _f32ToI16(tmpBuf.getChannelData(2));
+            const bdI16 = _f32ToI16(tmpBuf.getChannelData(3));
+            const sr = tmpBuf.sampleRate;
+
+            _edModal.step("Transferring signal data to Python…", 72);
+            py.globals.set("_ed_td", Array.from(tdI16));
+            py.globals.set("_ed_bd", Array.from(bdI16));
+            py.globals.set("_ed_sr", sr);
+
+            _edModal.step("Verifying BMC signal integrity…", 80);
+            const resultRaw = await py.runPythonAsync(
+              "_ed_viz_ns['verify_and_decode_json'](_ed_td, _ed_bd, _ed_sr)",
+            );
+            const result = JSON.parse(resultRaw);
+
+            _edModal.step("Mapping channels…", 91);
+            _tBuild4chData(py, arena, result);
+            _tBuf = tmpBuf; // switch playback to 4ch mode
+
+            _edModal.step("Done!", 100);
+            setTimeout(() => _edModal.hide(), 500);
+
+            const pass = result.verdict === "PASS";
+            const tdErr = ((result.td?.error_rate || 0) * 100).toFixed(2);
+            const bdErr = ((result.bd?.error_rate || 0) * 100).toFixed(2);
+
+            if (badge) {
+              badge.textContent = pass ? "✓ PASS" : "✗ FAIL";
+              badge.className = "tester-val-badge " + (pass ? "pass" : "fail");
+            }
+            if (pass) {
+              _tValidated = true;
+              if (btRshw) btRshw.disabled = false;
+            }
+            setStatus(
+              `4ch validate: ${pass ? "✓ PASS" : "✗ FAIL"} — ` +
+                `TD ${result.td?.frame_count} frames (${tdErr}% err) · ` +
+                `BD ${result.bd?.frame_count} frames (${bdErr}% err)`,
+              pass ? undefined : "#f44",
+            );
+          } catch (err) {
+            _tBuf = null;
+            _tRaw = null;
+            if (badge) {
+              badge.textContent = "ERROR";
+              badge.className = "tester-val-badge fail";
+            }
+            _edModal.hide();
+            setStatus("✗ 4ch validate failed: " + err.message, "#f44");
+            console.error(err);
+          }
+        }
+
+        /* ==============================================================
+           .rshw EXPORT
+           ============================================================== */
+        async function exportRSHW() {
+          if (!_tRaw) {
+            setStatus("Load a 4ch WAV in the tester first.", "#fa0");
+            return;
+          }
+          try {
+            const py = await _ensurePy("Building .rshw File");
+            await _ensureRshwBuilder(py);
+
+            _edModal.step("Transferring WAV bytes to Python…", 63);
+            py.globals.set("_ed_wav_bytes", _tRaw);
+
+            _edModal.step("Decoding BMC + building NRBF…", 76);
+            const resultJson = await py.runPythonAsync(
+              `import json as _j, base64 as _b
+try:
+    _rshw_out = _ed_rshw_ns['convert_4ch_wav_to_rshw'](_ed_wav_bytes.to_py())
+    _rshw_result = _j.dumps({'b64': _b.b64encode(_rshw_out).decode()})
+except Exception as _e:
+    import traceback as _t
+    _rshw_result = _j.dumps({'error': str(_e), 'traceback': _t.format_exc()})
+_rshw_result`,
+            );
+            const result = JSON.parse(resultJson);
+            if (result.error) throw new Error(result.error);
+
+            _edModal.step("Saving…", 94);
+            const rawOut = Uint8Array.from(atob(result.b64), (c) =>
+              c.charCodeAt(0),
+            );
+            const stem = (showData?.title || "show").replace(
+              /[^a-z0-9_\-]/gi,
+              "_",
+            );
+            _download(
+              new Blob([rawOut], { type: "application/octet-stream" }),
+              stem + ".rshw",
+            );
+
+            _edModal.step("Done!", 100);
+            setTimeout(() => _edModal.hide(), 600);
+            setStatus(".rshw exported successfully.");
+          } catch (err) {
+            _edModal.hide();
+            setStatus("\u2717 .rshw export failed: " + err.message, "#f44");
+            console.error(err);
+          }
+        }
+
+        /* ==============================================================
+           INIT — register all SCME-related event listeners
+           ============================================================== */
+        document.addEventListener("DOMContentLoaded", () => {
+          // 4ch WAV export button
+          document
+            .getElementById("btn-export-4ch")
+            .addEventListener("click", export4chWAV);
+
+          // Tester modal open — build live stage first, then show
+          document
+            .getElementById("btn-tester")
+            .addEventListener("click", () => {
+              _tBuildLiveStage();
+              document.getElementById("tester-overlay").classList.add("open");
+            });
+
+          const _tClose = () => {
+            _tStop();
+            document.getElementById("tester-overlay").classList.remove("open");
+          };
+          document
+            .getElementById("tester-close")
+            .addEventListener("click", _tClose);
+          document
+            .getElementById("tester-overlay")
+            .addEventListener("click", (e) => {
+              if (e.target === document.getElementById("tester-overlay"))
+                _tClose();
+            });
+
+          // 4ch WAV validate upload
+          const tWavIn = document.getElementById("tester-wav-input");
+          tWavIn.addEventListener("change", () => {
+            if (tWavIn.files[0]) _loadTesterWAV(tWavIn.files[0]);
+          });
+
+          // Transport
+          document
+            .getElementById("tester-play")
+            .addEventListener("click", _tStart);
+          document
+            .getElementById("tester-pause")
+            .addEventListener("click", _tPause);
+          document
+            .getElementById("tester-stop")
+            .addEventListener("click", () => _tStop(true));
+
+          // Progress scrub — works in both live and 4ch mode
+          document
+            .getElementById("tester-progress")
+            .addEventListener("input", (e) => {
+              const dur = _tBuf ? _tBuf.duration : _tLiveDur;
+              if (!dur) return;
+              const newTime = (dur * +e.target.value) / 100;
+              const wasPlaying = _tPlay;
+              _tPause();
+              _tCurTime = newTime;
+              // Live mode: seek the state machine to the new position so LEDs
+              // reflect the correct ON/OFF state even before playback resumes.
+              if (!_tBuf) _tLiveSeekTo(newTime);
+              if (wasPlaying) _tStart();
+            });
+
+          // .rshw export (gated: only enabled after 4ch validation PASS)
+          document
+            .getElementById("tester-export-rshw")
+            .addEventListener("click", exportRSHW);
+
+          // Volume sliders — update gain nodes live
+          document
+            .getElementById("tester-vol-music")
+            .addEventListener("input", (e) => {
+              _tMusicVol = +e.target.value / 100;
+              document.getElementById("tester-vol-music-pct").textContent =
+                e.target.value + "%";
+              if (_tMusGainL) _tMusGainL.gain.value = _tMusicVol;
+              if (_tMusGainR) _tMusGainR.gain.value = _tMusicVol;
+            });
+          document
+            .getElementById("tester-vol-signals")
+            .addEventListener("input", (e) => {
+              _tSigVol = +e.target.value / 100;
+              document.getElementById("tester-vol-signals-pct").textContent =
+                e.target.value + "%";
+              if (_tSigGainL) _tSigGainL.gain.value = _tSigVol;
+              if (_tSigGainR) _tSigGainR.gain.value = _tSigVol;
+            });
+        });
+      })(); // end SCME bridge IIFE
+    </script>
+
+    <script>
+      /* ── Intro overlay — self-contained, independent of app.js ── */
+      (function () {
+        var overlay = document.getElementById("intro-overlay");
+        var video = document.getElementById("intro-video");
+        var prompt = document.getElementById("intro-prompt");
+        var skip = document.getElementById("skip-intro");
+
+        function dismiss() {
+          if (overlay.classList.contains("intro-hidden")) return;
+          overlay.classList.add("intro-hidden");
+          video.pause();
+          setTimeout(function () {
+            overlay.style.display = "none";
+          }, 1000);
+        }
+
+        function startIntro() {
+          if (video.paused) {
+            video
+              .play()
+              .then(function () {
+                prompt.style.opacity = "0";
+                setTimeout(function () {
+                  prompt.style.display = "none";
+                  skip.style.display = "block";
+                }, 300);
+                video.classList.add("video-playing");
+              })
+              .catch(function (err) {
+                console.log("Intro video play blocked:", err);
+              });
+          } else {
+            dismiss();
+          }
+        }
+
+        video.addEventListener("ended", dismiss);
+        overlay.addEventListener("click", startIntro);
+      })();
+    </script>
   </body>
 </html>
