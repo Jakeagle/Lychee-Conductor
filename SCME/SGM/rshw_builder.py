@@ -57,6 +57,7 @@ _ZERO_THRESH   = 200         # amplitude below this = silence (int16 scale)
 _TD_FRAME_BITS = 94          # RAE Top Drawer frame width in bits
 _BD_FRAME_BITS = 96          # RAE Bottom Drawer frame width in bits
 _RSHW_FPS      = 60          # UI_ShowtapeManager.dataStreamedFPS default
+_SPB           = 9           # samples per bit (encoder uses integer, not 44100/4800=9.1875)
 
 
 # ── WAV parser ─────────────────────────────────────────────────────────────────
@@ -409,7 +410,8 @@ def _serialize_rshw_format(audio_data: bytes, signal_data: list) -> bytes:
 # ── Signal data builder ────────────────────────────────────────────────────────
 
 def _build_signal_data(td_frames, bd_frames, audio_length_s, fps=_RSHW_FPS,
-                       baud_rate=_BAUD_RATE,
+                       sample_rate=44100,
+                       samples_per_bit=_SPB,
                        td_frame_bits=_TD_FRAME_BITS,
                        bd_frame_bits=_BD_FRAME_BITS):
     """
@@ -432,9 +434,16 @@ def _build_signal_data(td_frames, bd_frames, audio_length_s, fps=_RSHW_FPS,
       converted.Add(0)            ← frame delimiter FIRST
       converted.Add(bit_index+1)  ← for each ON bit in the 300-bit frame
     """
-    # Duration (seconds) per TD/BD BMC frame
-    td_frame_s = td_frame_bits / baud_rate   # ≈ 0.01958 s
-    bd_frame_s = bd_frame_bits / baud_rate   # ≈ 0.02000 s
+    # Duration (seconds) per TD/BD BMC frame.
+    # IMPORTANT: use integer samples-per-bit (9), NOT the theoretical baud
+    # rate (4800 baud → 9.1875 samp/bit).  The encoder writes exactly 9
+    # samples per bit, so the true frame period is:
+    #   TD: 94 * 9 / 44100 = 846/44100 ≈ 0.019183 s
+    #   BD: 96 * 9 / 44100 = 864/44100 ≈ 0.019591 s
+    # Using 94/4800 ≈ 0.019583 s instead causes ~2% accumulating drift
+    # (~64 frames/minute at 60 fps rshw).
+    td_frame_s = (td_frame_bits * samples_per_bit) / sample_rate   # 846/44100
+    bd_frame_s = (bd_frame_bits * samples_per_bit) / sample_rate   # 864/44100
 
     total_rshw_frames = int(audio_length_s * fps)
     signal_data = []
@@ -507,7 +516,8 @@ def build_rshw(audio_l, audio_r, td_samples, bd_samples, sample_rate=44100):
 
     # ── Build signalData at 60 fps ──────────────────────────────────────────
     audio_length_s = len(audio_l) / sample_rate
-    signal_data = _build_signal_data(td_frames, bd_frames, audio_length_s)
+    signal_data = _build_signal_data(td_frames, bd_frames, audio_length_s,
+                                      sample_rate=sample_rate)
 
     # ── Build stereo audio WAV ──────────────────────────────────────────────
     stereo_wav_bytes = _build_stereo_wav(audio_l, audio_r, sample_rate)
