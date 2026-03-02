@@ -1217,6 +1217,7 @@
         <div id="timeline-wrap">
           <canvas id="ruler-canvas" title="Click to seek"></canvas>
           <div id="tracks-container">
+            <div id="select-rect"></div>
             <div id="playhead"></div>
             <div id="drag-preview"></div>
             <div id="snap-line"></div>
@@ -1471,8 +1472,8 @@
       let selectedKeys = new Set(); // all currently-selected block keys (multi-select)
       let clipboard = null; // { blocks:[{charName,movKey,startFrame,endFrame}], anchorFrame }
       let dragState = null; // { charName, movKey, anchorFrame, curFrame }
-      let blockMoveState = null; // { charName, movKey, startFrame, endFrame, dur, grabOffset, el, row, mouseDownX, dragging, mode ('move'|'resize-start'|'resize-end'), previewStart, previewEnd }
-      let dragSelectState = null; // { startFrame, curFrame, anchorClientX }
+      let blockMoveState = null; // { charName, movKey, startFrame, endFrame, dur, grabOffset, el, row, mouseDownX, mouseDownY, dragging, mode, previewStart, previewEnd, isState, targetRow, targetCharName, targetMovKey }
+      let dragSelectState = null; // { startFrame, curFrame, anchorClientX, startY, curY }
       let snapEnabled = true;
       let drawMode = "signal"; // 'signal' | 'state'
       let rafId = null;
@@ -1880,11 +1881,15 @@
               el,
               row,
               mouseDownX: e.clientX,
+              mouseDownY: e.clientY,
               dragging: false,
               mode,
               previewStart: undefined,
               previewEnd: undefined,
               isState: false,
+              targetRow: null,
+              targetCharName: charName,
+              targetMovKey: movKey,
             };
           });
           row.appendChild(el);
@@ -1952,11 +1957,15 @@
               el,
               row,
               mouseDownX: e.clientX,
+              mouseDownY: e.clientY,
               dragging: false,
               mode,
               previewStart: undefined,
               previewEnd: undefined,
               isState: true,
+              targetRow: null,
+              targetCharName: charName,
+              targetMovKey: movKey,
             };
           });
           row.appendChild(el);
@@ -2167,16 +2176,18 @@
       /* ============================================================
    DRAG-SELECT RECT
    ============================================================ */
-      function updateSelectRect(startFrame, endFrame) {
+      function updateSelectRect(startFrame, endFrame, startY, endY) {
         const elRect = document.getElementById("select-rect");
         if (!elRect) return;
         const x1 = frameToX(Math.min(startFrame, endFrame));
         const x2 = frameToX(Math.max(startFrame, endFrame));
+        const y1 = Math.min(startY ?? 0, endY ?? elTracks.scrollHeight);
+        const y2 = Math.max(startY ?? 0, endY ?? elTracks.scrollHeight);
         elRect.style.display = "block";
         elRect.style.left = x1 + "px";
         elRect.style.width = Math.max(2, x2 - x1) + "px";
-        elRect.style.height =
-          Math.max(elTracks.scrollHeight, elTimelineWrap.clientHeight) + "px";
+        elRect.style.top = y1 + "px";
+        elRect.style.height = Math.max(2, y2 - y1) + "px";
       }
 
       function hideSelectRect() {
@@ -2199,12 +2210,17 @@
         if (e.ctrlKey || e.metaKey) {
           e.preventDefault();
           const frame = xToFrame(rawX);
+          const tracksRect0 = elTracks.getBoundingClientRect();
+          const startY =
+            e.clientY - tracksRect0.top + (elTimelineWrap.scrollTop || 0);
           dragSelectState = {
             startFrame: frame,
             curFrame: frame,
             anchorClientX: e.clientX,
+            startY,
+            curY: startY,
           };
-          updateSelectRect(frame, frame);
+          updateSelectRect(frame, frame, startY, startY);
           return;
         }
 
@@ -2228,8 +2244,9 @@
         /* ── Block interaction drag (move / resize-start / resize-end) ── */
         if (blockMoveState) {
           const dx = e.clientX - blockMoveState.mouseDownX;
+          const dy = e.clientY - (blockMoveState.mouseDownY || e.clientY);
           if (!blockMoveState.dragging) {
-            if (Math.abs(dx) < 4) return;
+            if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
             blockMoveState.dragging = true;
             blockMoveState.el.classList.add("block-dragging");
             if (blockMoveState.mode === "move") {
@@ -2251,6 +2268,7 @@
             const rawFrame = xToFrame(rawX);
 
             if (mode === "move") {
+              // ── Horizontal (frame) calculation ──────────────────────────
               const rawStart = rawFrame - blockMoveState.grabOffset;
               const rawEnd = rawStart + dur;
               const snappedStart = snapFrame(
@@ -2292,14 +2310,20 @@
               );
               blockMoveState.previewStart = clampedStart;
               blockMoveState.previewEnd = clampedStart + dur;
+
+              // ── Vertical (row) detection ─────────────────────────────────
+              const hovRow = getRowAtClientY(e.clientY);
+              if (hovRow) {
+                blockMoveState.targetRow = hovRow;
+                blockMoveState.targetCharName = hovRow.dataset.char;
+                blockMoveState.targetMovKey = hovRow.dataset.mov;
+              }
+              const previewRow = blockMoveState.targetRow || blockMoveState.row;
+
               // Show snap line at whichever edge is snapped (prefer end if that won)
               const snapLineFrame =
                 endDist < startDist ? clampedStart + dur : clampedStart;
-              updateDragPreview(
-                blockMoveState.row,
-                clampedStart,
-                clampedStart + dur,
-              );
+              updateDragPreview(previewRow, clampedStart, clampedStart + dur);
               showSnapLine(snapLineFrame);
             } else if (mode === "resize-start") {
               const snapped = snapFrame(
@@ -2341,10 +2365,15 @@
         if (dragSelectState) {
           const tracksRect = elTracks.getBoundingClientRect();
           const rawX = e.clientX - tracksRect.left + elTimelineWrap.scrollLeft;
+          const rawY =
+            e.clientY - tracksRect.top + (elTimelineWrap.scrollTop || 0);
           dragSelectState.curFrame = xToFrame(rawX);
+          dragSelectState.curY = rawY;
           updateSelectRect(
             dragSelectState.startFrame,
             dragSelectState.curFrame,
+            dragSelectState.startY,
+            dragSelectState.curY,
           );
           return;
         }
@@ -2376,27 +2405,66 @@
 
           if (bm.dragging) {
             bm.el.classList.remove("block-dragging");
+            const tCharName = bm.targetCharName || bm.charName;
+            const tMovKey = bm.targetMovKey || bm.movKey;
+            const crossRow = tCharName !== bm.charName || tMovKey !== bm.movKey;
             if (
               bm.previewStart !== undefined &&
-              (bm.previewStart !== bm.startFrame ||
+              (crossRow ||
+                bm.previewStart !== bm.startFrame ||
                 bm.previewEnd !== bm.endFrame)
             ) {
-              // Overlap check — exclude the block being moved
-              const signalOverlap = getBlocks(bm.charName, bm.movKey).some(
-                (b) => {
-                  if (
-                    !bm.isState &&
-                    b.startFrame === bm.startFrame &&
-                    b.endFrame === bm.endFrame
-                  )
-                    return false;
-                  return (
-                    bm.previewStart < b.endFrame && bm.previewEnd > b.startFrame
+              if (crossRow) {
+                // Cross-row overlap check in the target row
+                const targetSigOverlap = getBlocks(tCharName, tMovKey).some(
+                  (b) =>
+                    bm.previewStart < b.endFrame &&
+                    bm.previewEnd > b.startFrame,
+                );
+                const targetSbOverlap = getStateBlocks(tCharName, tMovKey).some(
+                  (b) =>
+                    bm.previewStart < b.endFrame &&
+                    bm.previewEnd > b.startFrame,
+                );
+                if (targetSigOverlap || targetSbOverlap) {
+                  setStatus(
+                    "⚠ Cannot move block — would overlap another signal in the target row.",
+                    "#fa0",
                   );
-                },
-              );
-              const stateOverlap = getStateBlocks(bm.charName, bm.movKey).some(
-                (b) => {
+                  refreshRow(bm.charName, bm.movKey);
+                } else {
+                  commitBlockMoveToNewRow(
+                    bm.charName,
+                    bm.movKey,
+                    tCharName,
+                    tMovKey,
+                    bm.startFrame,
+                    bm.endFrame,
+                    bm.previewStart,
+                    bm.previewEnd,
+                    bm.isState,
+                  );
+                }
+              } else {
+                // Overlap check — exclude the block being moved
+                const signalOverlap = getBlocks(bm.charName, bm.movKey).some(
+                  (b) => {
+                    if (
+                      !bm.isState &&
+                      b.startFrame === bm.startFrame &&
+                      b.endFrame === bm.endFrame
+                    )
+                      return false;
+                    return (
+                      bm.previewStart < b.endFrame &&
+                      bm.previewEnd > b.startFrame
+                    );
+                  },
+                );
+                const stateOverlap = getStateBlocks(
+                  bm.charName,
+                  bm.movKey,
+                ).some((b) => {
                   if (
                     bm.isState &&
                     b.startFrame === bm.startFrame &&
@@ -2406,24 +2474,24 @@
                   return (
                     bm.previewStart < b.endFrame && bm.previewEnd > b.startFrame
                   );
-                },
-              );
-              if (signalOverlap || stateOverlap) {
-                setStatus(
-                  "⚠ Cannot move block — would overlap another signal.",
-                  "#fa0",
-                );
-                refreshRow(bm.charName, bm.movKey);
-              } else {
-                commitBlockMove(
-                  bm.charName,
-                  bm.movKey,
-                  bm.startFrame,
-                  bm.endFrame,
-                  bm.previewStart,
-                  bm.previewEnd,
-                  bm.isState,
-                );
+                });
+                if (signalOverlap || stateOverlap) {
+                  setStatus(
+                    "⚠ Cannot move block — would overlap another signal.",
+                    "#fa0",
+                  );
+                  refreshRow(bm.charName, bm.movKey);
+                } else {
+                  commitBlockMove(
+                    bm.charName,
+                    bm.movKey,
+                    bm.startFrame,
+                    bm.endFrame,
+                    bm.previewStart,
+                    bm.previewEnd,
+                    bm.isState,
+                  );
+                }
               }
             } else {
               refreshRow(bm.charName, bm.movKey); // re-render to remove dragging class
@@ -2440,9 +2508,29 @@
           const frameA = Math.min(ds.startFrame, ds.curFrame);
           const frameB = Math.max(ds.startFrame, ds.curFrame);
           if (frameB - frameA >= 1) {
+            const yA = Math.min(
+              ds.startY ?? 0,
+              ds.curY ?? elTracks.scrollHeight,
+            );
+            const yB = Math.max(
+              ds.startY ?? 0,
+              ds.curY ?? elTracks.scrollHeight,
+            );
+            const useYFilter = yB - yA > 4; // only filter if user dragged vertically
             clearSelection();
             let count = 0;
             for (const { charName, movKey } of rowMeta) {
+              // Filter by vertical selection range
+              if (useYFilter) {
+                const rowEl = elTracks.querySelector(
+                  `.track-row[data-char="${CSS.escape(charName)}"][data-mov="${CSS.escape(movKey)}"]`,
+                );
+                if (rowEl) {
+                  const rTop = rowEl.offsetTop;
+                  const rBot = rTop + rowEl.offsetHeight;
+                  if (rBot <= yA || rTop >= yB) continue;
+                }
+              }
               // Select signal blocks in range
               for (const blk of getBlocks(charName, movKey)) {
                 if (blk.startFrame < frameB && blk.endFrame > frameA) {
@@ -2620,6 +2708,126 @@
 
         setStatus(
           `Moved: ${charName} / ${movKey.replace(/_/g, " ")} → F${newStart}–F${newEnd} (${frameToTimestamp(newStart)} – ${frameToTimestamp(newEnd)})`,
+        );
+      }
+
+      /* ── Helper: find the track-row element at a given client Y ─ */
+      function getRowAtClientY(clientY) {
+        const tracksRect = elTracks.getBoundingClientRect();
+        const rawY = clientY - tracksRect.top + (elTimelineWrap.scrollTop || 0);
+        for (const row of elTracks.querySelectorAll(".track-row")) {
+          if (rawY >= row.offsetTop && rawY < row.offsetTop + row.offsetHeight)
+            return row;
+        }
+        return null;
+      }
+
+      /* ── Cross-row block move: remove from original row, insert in new ── */
+      function commitBlockMoveToNewRow(
+        origCharName,
+        origMovKey,
+        newCharName,
+        newMovKey,
+        oldStart,
+        oldEnd,
+        newStart,
+        newEnd,
+        isState,
+      ) {
+        if (isState) {
+          const origSbs = showData?.characters?.[origCharName]?.state_blocks;
+          if (!origSbs) {
+            setStatus("✗ Could not locate state block to move.", "#f44");
+            return;
+          }
+          const sbIdx = origSbs.findIndex(
+            (b) =>
+              b.movement === origMovKey &&
+              b.startFrame === oldStart &&
+              b.endFrame === oldEnd,
+          );
+          if (sbIdx < 0) {
+            setStatus("✗ Could not locate state block to move.", "#f44");
+            return;
+          }
+          origSbs.splice(sbIdx, 1);
+          ensureChar(newCharName);
+          if (!showData.characters[newCharName].state_blocks)
+            showData.characters[newCharName].state_blocks = [];
+          showData.characters[newCharName].state_blocks.push({
+            movement: newMovKey,
+            startFrame: newStart,
+            endFrame: newEnd,
+          });
+          showData.characters[newCharName].state_blocks.sort(
+            (a, b) => a.startFrame - b.startFrame,
+          );
+          refreshRow(origCharName, origMovKey);
+          refreshRow(newCharName, newMovKey);
+          selectedKey = `STATE||${newCharName}||${newMovKey}||${newStart}`;
+          selectedKeys.clear();
+          selectedKeys.add(selectedKey);
+          const movedEl = elTracks.querySelector(
+            `.state-block[data-key="${CSS.escape(selectedKey)}"]`,
+          );
+          if (movedEl) movedEl.classList.add("selected");
+          setStatus(
+            `Moved STATE HOLD: ${newCharName} / ${newMovKey.replace(/_/g, " ")} → F${newStart}–F${newEnd}`,
+          );
+          return;
+        }
+
+        // Signal block
+        const origSigs = showData?.characters?.[origCharName]?.signals;
+        if (!origSigs) {
+          setStatus("✗ Could not locate signals to move.", "#f44");
+          return;
+        }
+        let onIdx = -1,
+          offIdx = -1;
+        for (let i = 0; i < origSigs.length; i++) {
+          if (
+            origSigs[i].movement === origMovKey &&
+            origSigs[i].frame === oldStart &&
+            origSigs[i].state === true &&
+            onIdx < 0
+          )
+            onIdx = i;
+        }
+        if (onIdx >= 0) {
+          for (let i = onIdx + 1; i < origSigs.length; i++) {
+            if (
+              origSigs[i].movement === origMovKey &&
+              origSigs[i].frame === oldEnd &&
+              origSigs[i].state === false
+            ) {
+              offIdx = i;
+              break;
+            }
+          }
+        }
+        if (onIdx < 0 || offIdx < 0) {
+          setStatus("✗ Could not locate signals to move.", "#f44");
+          refreshRow(origCharName, origMovKey);
+          return;
+        }
+        // Remove in reverse index order to avoid shifting issues
+        const hi = Math.max(onIdx, offIdx);
+        const lo = Math.min(onIdx, offIdx);
+        origSigs.splice(hi, 1);
+        origSigs.splice(lo, 1);
+        refreshRow(origCharName, origMovKey);
+        // Insert into the new row
+        commitInsert(newCharName, newMovKey, newStart, newEnd);
+        selectedKey = `${newCharName}||${newMovKey}||${newStart}`;
+        selectedKeys.clear();
+        selectedKeys.add(selectedKey);
+        const movedEl = elTracks.querySelector(
+          `.signal-block[data-key="${CSS.escape(selectedKey)}"]`,
+        );
+        if (movedEl) movedEl.classList.add("selected");
+        setStatus(
+          `Moved: ${newCharName} / ${newMovKey.replace(/_/g, " ")} → F${newStart}–F${newEnd}`,
         );
       }
 
@@ -2888,7 +3096,9 @@
         if (!isPlaying) return;
         isPlaying = false;
         cancelAnimationFrame(rafId);
+        rafId = null;
         if (sourceNode) {
+          sourceNode.onended = null; // prevent stale callback from killing a new playback session
           try {
             sourceNode.stop();
           } catch (_) {}
