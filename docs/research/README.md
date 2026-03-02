@@ -6,14 +6,15 @@ This folder contains all technical reference material accumulated during develop
 
 ## Document Index
 
-| File                                                   | Contents                                                            |
-| ------------------------------------------------------ | ------------------------------------------------------------------- |
-| [bmc-encoding.md](bmc-encoding.md)                     | Biphase Mark Code rules, timing, and sample-level behaviour         |
-| [rae-bit-chart.md](rae-bit-chart.md)                   | Complete RAE actuator channel map from `RAE_Bit_Chart_2.pdf`        |
-| [kws-analysis.md](kws-analysis.md)                     | Known-Working Show analysis — how hardware timing was confirmed     |
-| [hardware-timing.md](hardware-timing.md)               | All confirmed hardware constants and how each was derived           |
-| [sgm-validation-history.md](sgm-validation-history.md) | History of the signal generation pipeline, including early failures |
-| [scme-modules.md](scme-modules.md)                     | Design rationale for each SCME Python module                        |
+| File                                                     | Contents                                                                              |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| [bmc-encoding.md](bmc-encoding.md)                       | Biphase Mark Code rules, timing, and sample-level behaviour                           |
+| [rae-bit-chart.md](rae-bit-chart.md)                     | Complete RAE actuator channel map from `RAE_Bit_Chart_2.pdf`                          |
+| [kws-analysis.md](kws-analysis.md)                       | Known-Working Show analysis — how hardware timing was confirmed                       |
+| [hardware-timing.md](hardware-timing.md)                 | All confirmed hardware constants and how each was derived                             |
+| [sgm-validation-history.md](sgm-validation-history.md)   | History of the signal generation pipeline, including early failures                   |
+| [scme-modules.md](scme-modules.md)                       | Design rationale for each SCME Python module                                          |
+| [sample-rate-timing-bugs.md](sample-rate-timing-bugs.md) | Root-cause report: AudioContext rate bug (slow music) + rshw frame drift (March 2026) |
 
 ---
 

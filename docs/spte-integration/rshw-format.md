@@ -139,5 +139,22 @@ The Python module `SCME/SGM/rshw_builder.py` handles writing this format. It:
 ## Notes
 
 - The `videoData` field is almost always `null` / `ObjectNull`. Only specialty video-synced shows use it.
-- The 60 fps RSHW frame rate is **not the same** as the 45.9375 fps hardware BMC frame rate. They are independent timing systems. RSHW is SPTE's internal representation; BMC is the physical wire signal.
+- The 60 fps RSHW frame rate is **not the same** as the BMC frame rate. They are independent timing systems. RSHW is SPTE's internal representation; BMC is the physical wire signal.
 - BitArray indices are 0-based in C# but the PDF spec (RAE_Bit_Chart_2.pdf) is 1-based. Always subtract 1 when reading the PDF.
+
+### BMC Frame-to-RSHW Frame Timing
+
+When building `signalData` from decoded BMC frames, the frame period **must** be computed
+from the integer `SAMPLES_PER_BIT = 9` constant (what the encoder actually writes), not
+from the baud rate alone:
+
+| Track | Correct frame period          | Wrong (baud-rate only)   | Error  |
+| ----- | ----------------------------- | ------------------------ | ------ |
+| TD    | `94 × 9 / 44100 = 0.019183 s` | `94 / 4800 = 0.019583 s` | +2.08% |
+| BD    | `96 × 9 / 44100 = 0.019591 s` | `96 / 4800 = 0.020000 s` | +2.09% |
+
+The baud rate of 4,800 implies `44100 / 4800 = 9.1875` samples/bit, but the encoder
+writes exactly 9. Using the higher value causes the RSHW frame index to advance _faster_
+than the actual BMC frame stream, so each RSHW frame reads from a BMC frame that is
+~2% too early in the list. This lag grows continuously: **~64 BMC frames per minute**,
+making repeating animations drift progressively behind the music.

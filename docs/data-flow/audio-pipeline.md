@@ -29,14 +29,24 @@ no audio file at all. Channels 1 and 2 of the export will be silent in that case
 The user clicks "Load WAV". JavaScript reads the file as an `ArrayBuffer` and passes it to:
 
 ```js
-audioContext.decodeAudioData(arrayBuffer);
+audioCtx = new AudioContext({ sampleRate: 44100 });
+audioCtx.decodeAudioData(arrayBuffer);
 ```
 
 Result is an `AudioBuffer` held in the global `audioBuffer` variable:
 
-- Sample rate: whatever the file is encoded at (44,100 Hz expected for export use)
+- **Sample rate: always 44,100 Hz** — the `AudioContext` is explicitly constructed
+  with `{ sampleRate: 44100 }`. The browser's decoder resamples the source file to
+  this rate unconditionally, regardless of the file's original encoding (e.g. 48,000 Hz).
 - Channels: as encoded in the file (stereo expected; mono is buffered as is)
 - Sample precision: Float32, range [-1.0, 1.0]
+
+> **Why forced to 44,100 Hz?** Without `{ sampleRate: 44100 }`, `new AudioContext()`
+> adopts the OS audio device rate, which is 48,000 Hz on most Windows systems. The BMC
+> signal encoder uses an integer constant of 9 samples per bit at 44,100 Hz. Mixing an
+> `audioBuffer` decoded at 48,000 Hz into a WAV whose header declares 44,100 Hz caused
+> the music to play back at 44,100/48,000 ≈ 91.9% speed — audibly flat and slow.
+> Forcing 44,100 Hz at context creation eliminates the mismatch entirely.
 
 ---
 
@@ -59,35 +69,43 @@ to AudioContext suspend.
 
 ### Step 3 — Export Embedding
 
-When the user clicks "Export 4ch WAV", channel data is extracted from `audioBuffer` and
-passed to the Python SGM:
+When the user clicks "Export 4ch WAV", `export4chWAV()` calls the Python SGM via
+Pyodide to render the BMC signal tracks at 44,100 Hz / 9 samples-per-bit, then
+directly copies `audioBuffer` channel data into the assembled WAV:
 
 ```js
-const musicL = audioBuffer ? Array.from(audioBuffer.getChannelData(0)) : null;
-const musicR = audioBuffer
-  ? Array.from(audioBuffer.getChannelData(audioBuffer.numberOfChannels > 1 ? 1 : 0))
-  : null;
-// passed as-is (Float32) to export_bridge.generate_4ch_wav()
+const musL = new Float32Array(n);
+const musR = new Float32Array(n);
+if (audioBuffer) {
+  const s0 = audioBuffer.getChannelData(0);
+  musL.set(s0.subarray(0, Math.min(s0.length, n)));
+  const s1 =
+    audioBuffer.numberOfChannels > 1 ? audioBuffer.getChannelData(1) : s0;
+  musR.set(s1.subarray(0, Math.min(s1.length, n)));
+}
 ```
 
-- Channel 0 of audioBuffer → Music Left (output WAV channel 1)
-- Channel 1 of audioBuffer (or channel 0 if mono) → Music Right (output WAV channel 2)
-- No mixing, no decimation, no conversion to Int16 on the JS side
+- Channel 0 of `audioBuffer` → Music Left (output WAV channel 1)
+- Channel 1 of `audioBuffer` (or ch 0 if mono) → Music Right (output WAV channel 2)
+- Channels 3–4 come from Python (`td_b64` / `bd_b64`, base64-decoded Int16 PCM)
 
-The Python `export_bridge.py` converts Float32 → Int16 internally.
+Because the `AudioContext` is created at 44,100 Hz (Step 1), `audioBuffer.sampleRate`
+always equals `result.sample_rate` (44,100). The copy is direct — no resampling step
+is needed at export time. `_encodeMultiChWAV` then interleaves all four channels as
+16-bit LE PCM into a standard RIFF/WAVE container.
 
 ---
 
 ### What Is NOT Done in v3
 
-| v2 Step                               | v3 Status                                                         |
-| ------------------------------------- | ----------------------------------------------------------------- |
-| Mix to mono                           | Not performed — stereo channels passed directly to export         |
-| Decimate to 11,025 Hz                 | Not performed — SAM analysis not called from the UI               |
-| Convert to Int16 on the JS side       | Not performed — Python handles this internally                    |
-| Pass samples to SAM via Pyodide       | Not performed — SAM not called from the browser UI in v3          |
+| v2 Step                                    | v3 Status                                                 |
+| ------------------------------------------ | --------------------------------------------------------- |
+| Mix to mono                                | Not performed — stereo channels passed directly to export |
+| Decimate to 11,025 Hz                      | Not performed — SAM analysis not called from the UI       |
+| Convert to Int16 on the JS side            | Not performed — Python handles this internally            |
+| Pass samples to SAM via Pyodide            | Not performed — SAM not called from the browser UI in v3  |
 | Frequency band splitting (bass/mid/treble) | Not performed — no auto-choreography in v3 UI             |
-| Onset detection / BPM estimation      | Not performed — no auto-choreography in v3 UI                     |
+| Onset detection / BPM estimation           | Not performed — no auto-choreography in v3 UI             |
 
 ---
 
