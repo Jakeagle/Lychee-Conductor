@@ -1865,11 +1865,13 @@
               toggleBlockInSelection(key, el);
               return;
             }
-            selectBlock(key, el);
+            const isMultiDrag = selectedKeys.size > 1 && selectedKeys.has(key);
+            if (!isMultiDrag) selectBlock(key, el);
             const bw = el.offsetWidth;
             const ex = e.offsetX;
-            const mode =
-              ex < EDGE_PX
+            const mode = isMultiDrag
+              ? "move"
+              : ex < EDGE_PX
                 ? "resize-start"
                 : bw - ex < EDGE_PX
                   ? "resize-end"
@@ -1892,6 +1894,7 @@
               targetRow: null,
               targetCharName: charName,
               targetMovKey: movKey,
+              multiBlocks: isMultiDrag ? buildMultiBlocks(key) : null,
             };
           });
           row.appendChild(el);
@@ -1941,11 +1944,14 @@
               toggleBlockInSelection(sbKey, el);
               return;
             }
-            selectBlock(sbKey, el);
+            const isMultiDrag =
+              selectedKeys.size > 1 && selectedKeys.has(sbKey);
+            if (!isMultiDrag) selectBlock(sbKey, el);
             const bw = el.offsetWidth;
             const ex = e.offsetX;
-            const mode =
-              ex < EDGE_PX
+            const mode = isMultiDrag
+              ? "move"
+              : ex < EDGE_PX
                 ? "resize-start"
                 : bw - ex < EDGE_PX
                   ? "resize-end"
@@ -1968,6 +1974,7 @@
               targetRow: null,
               targetCharName: charName,
               targetMovKey: movKey,
+              multiBlocks: isMultiDrag ? buildMultiBlocks(sbKey) : null,
             };
           });
           row.appendChild(el);
@@ -2250,6 +2257,10 @@
             if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
             blockMoveState.dragging = true;
             blockMoveState.el.classList.add("block-dragging");
+            if (blockMoveState.multiBlocks) {
+              for (const mb of blockMoveState.multiBlocks)
+                if (mb.el) mb.el.classList.add("block-dragging");
+            }
             if (blockMoveState.mode === "move") {
               // Compute grab offset (frames into the block where user clicked)
               const rowRect = blockMoveState.row.getBoundingClientRect();
@@ -2311,6 +2322,25 @@
               );
               blockMoveState.previewStart = clampedStart;
               blockMoveState.previewEnd = clampedStart + dur;
+
+              // ── Live-update secondary blocks' positions ─────────────────
+              if (blockMoveState.multiBlocks) {
+                const frameDelta = clampedStart - blockMoveState.startFrame;
+                for (const mb of blockMoveState.multiBlocks) {
+                  if (mb.el) {
+                    mb.el.style.left =
+                      frameToX(
+                        Math.max(
+                          0,
+                          Math.min(
+                            totalFrames - mb.dur,
+                            mb.startFrame + frameDelta,
+                          ),
+                        ),
+                      ) + "px";
+                  }
+                }
+              }
 
               // ── Vertical (row) detection ─────────────────────────────────
               const hovRow = getRowAtClientY(e.clientY);
@@ -2405,6 +2435,136 @@
 
           if (bm.dragging) {
             bm.el.classList.remove("block-dragging");
+            if (bm.multiBlocks) {
+              for (const mb of bm.multiBlocks)
+                if (mb.el) mb.el.classList.remove("block-dragging");
+            }
+
+            // ── Multi-block move ─────────────────────────────────────────
+            if (bm.multiBlocks && bm.multiBlocks.length > 0) {
+              if (
+                bm.previewStart !== undefined &&
+                bm.previewStart !== bm.startFrame
+              ) {
+                const frameDelta = bm.previewStart - bm.startFrame;
+                const allMoves = [
+                  {
+                    charName: bm.charName,
+                    movKey: bm.movKey,
+                    oldStart: bm.startFrame,
+                    oldEnd: bm.endFrame,
+                    newStart: bm.previewStart,
+                    newEnd: bm.previewEnd,
+                    dur: bm.dur,
+                    isState: bm.isState,
+                  },
+                  ...bm.multiBlocks.map((mb) => {
+                    const ns = Math.max(
+                      0,
+                      Math.min(
+                        totalFrames - mb.dur,
+                        mb.startFrame + frameDelta,
+                      ),
+                    );
+                    return {
+                      charName: mb.charName,
+                      movKey: mb.movKey,
+                      oldStart: mb.startFrame,
+                      oldEnd: mb.endFrame,
+                      newStart: ns,
+                      newEnd: ns + mb.dur,
+                      dur: mb.dur,
+                      isState: mb.isState,
+                    };
+                  }),
+                ];
+                // Exclude all moving blocks from their own overlap checks
+                const movingIds = new Set(
+                  allMoves.map(
+                    (m) =>
+                      `${m.isState ? 1 : 0}|${m.charName}|${m.movKey}|${m.oldStart}`,
+                  ),
+                );
+                let canMove = true;
+                for (const mv of allMoves) {
+                  const existing = mv.isState
+                    ? getStateBlocks(mv.charName, mv.movKey)
+                    : getBlocks(mv.charName, mv.movKey);
+                  const overlap = existing.some((b) => {
+                    if (
+                      movingIds.has(
+                        `${mv.isState ? 1 : 0}|${mv.charName}|${mv.movKey}|${b.startFrame}`,
+                      )
+                    )
+                      return false;
+                    return mv.newStart < b.endFrame && mv.newEnd > b.startFrame;
+                  });
+                  if (overlap) {
+                    canMove = false;
+                    break;
+                  }
+                }
+                if (!canMove) {
+                  setStatus(
+                    "⚠ Cannot move — one or more blocks would overlap an existing signal.",
+                    "#fa0",
+                  );
+                  const rowsToRefresh = new Set(
+                    allMoves.map((m) => `${m.charName}||${m.movKey}`),
+                  );
+                  for (const r of rowsToRefresh) {
+                    const [cn, mk] = r.split("||");
+                    refreshRow(cn, mk);
+                  }
+                } else {
+                  for (const mv of allMoves) {
+                    commitBlockMove(
+                      mv.charName,
+                      mv.movKey,
+                      mv.oldStart,
+                      mv.oldEnd,
+                      mv.newStart,
+                      mv.newEnd,
+                      mv.isState,
+                    );
+                  }
+                  // Restore multi-selection across all moved blocks
+                  selectedKeys.clear();
+                  for (const mv of allMoves) {
+                    const k = mv.isState
+                      ? `STATE||${mv.charName}||${mv.movKey}||${mv.newStart}`
+                      : `${mv.charName}||${mv.movKey}||${mv.newStart}`;
+                    selectedKeys.add(k);
+                    const el2 = mv.isState
+                      ? elTracks.querySelector(
+                          `.state-block[data-key="${CSS.escape(k)}"]`,
+                        )
+                      : elTracks.querySelector(
+                          `.signal-block[data-key="${CSS.escape(k)}"]`,
+                        );
+                    if (el2) el2.classList.add("selected");
+                  }
+                  selectedKey = [...selectedKeys][0];
+                  setStatus(
+                    `Moved ${allMoves.length} blocks by ${frameDelta > 0 ? "+" : ""}${frameDelta} frame${Math.abs(frameDelta) === 1 ? "" : "s"}.`,
+                  );
+                }
+              } else {
+                // No horizontal movement — just re-render to clear dragging class
+                const rowsToRefresh = new Set(
+                  [bm, ...bm.multiBlocks].map(
+                    (m) => `${m.charName}||${m.movKey}`,
+                  ),
+                );
+                for (const r of rowsToRefresh) {
+                  const [cn, mk] = r.split("||");
+                  refreshRow(cn, mk);
+                }
+              }
+              return;
+            }
+
+            // ── Single-block move ────────────────────────────────────────
             const tCharName = bm.targetCharName || bm.charName;
             const tMovKey = bm.targetMovKey || bm.movKey;
             const crossRow = tCharName !== bm.charName || tMovKey !== bm.movKey;
@@ -2709,6 +2869,45 @@
         setStatus(
           `Moved: ${charName} / ${movKey.replace(/_/g, " ")} → F${newStart}–F${newEnd} (${frameToTimestamp(newStart)} – ${frameToTimestamp(newEnd)})`,
         );
+      }
+
+      /* ── Helper: build the list of other selected blocks for multi-drag ── */
+      function buildMultiBlocks(primaryKey) {
+        const result = [];
+        for (const k of selectedKeys) {
+          if (k === primaryKey) continue;
+          const parts = k.split("||");
+          const isState = parts[0] === "STATE";
+          const cn = isState ? parts[1] : parts[0];
+          const mk = isState ? parts[2] : parts[1];
+          const sfNum = parseInt(isState ? parts[3] : parts[2]);
+          const blkData = isState
+            ? getStateBlocks(cn, mk).find((b) => b.startFrame === sfNum)
+            : getBlocks(cn, mk).find((b) => b.startFrame === sfNum);
+          if (!blkData) continue;
+          const elSel = isState
+            ? elTracks.querySelector(
+                `.state-block[data-key="${CSS.escape(k)}"]`,
+              )
+            : elTracks.querySelector(
+                `.signal-block[data-key="${CSS.escape(k)}"]`,
+              );
+          const rowSel = elTracks.querySelector(
+            `.track-row[data-char="${CSS.escape(cn)}"][data-mov="${CSS.escape(mk)}"]`,
+          );
+          result.push({
+            key: k,
+            charName: cn,
+            movKey: mk,
+            startFrame: blkData.startFrame,
+            endFrame: blkData.endFrame,
+            dur: blkData.endFrame - blkData.startFrame,
+            isState,
+            el: elSel,
+            row: rowSel,
+          });
+        }
+        return result;
       }
 
       /* ── Helper: find the track-row element at a given client Y ─ */
