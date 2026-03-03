@@ -1847,9 +1847,8 @@
             if (!isMultiDrag) selectBlock(key, el);
             const bw = el.offsetWidth;
             const ex = e.offsetX;
-            const mode = isMultiDrag
-              ? "move"
-              : ex < EDGE_PX
+            const mode =
+              ex < EDGE_PX
                 ? "resize-start"
                 : bw - ex < EDGE_PX
                   ? "resize-end"
@@ -1872,7 +1871,8 @@
               targetRow: null,
               targetCharName: charName,
               targetMovKey: movKey,
-              multiBlocks: isMultiDrag ? buildMultiBlocks(key) : null,
+              multiBlocks:
+                isMultiDrag && mode === "move" ? buildMultiBlocks(key) : null,
             };
           });
           row.appendChild(el);
@@ -1927,9 +1927,8 @@
             if (!isMultiDrag) selectBlock(sbKey, el);
             const bw = el.offsetWidth;
             const ex = e.offsetX;
-            const mode = isMultiDrag
-              ? "move"
-              : ex < EDGE_PX
+            const mode =
+              ex < EDGE_PX
                 ? "resize-start"
                 : bw - ex < EDGE_PX
                   ? "resize-end"
@@ -1952,7 +1951,8 @@
               targetRow: null,
               targetCharName: charName,
               targetMovKey: movKey,
-              multiBlocks: isMultiDrag ? buildMultiBlocks(sbKey) : null,
+              multiBlocks:
+                isMultiDrag && mode === "move" ? buildMultiBlocks(sbKey) : null,
             };
           });
           row.appendChild(el);
