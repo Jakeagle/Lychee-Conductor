@@ -4,7 +4,7 @@ All notable changes to this project are documented in this file.
 
 ---
 
-## [3.2.1] - 2026-03-06
+## [3.2.2] - 2026-03-06
 
 ### Hotfix: Character Naming Consistency
 
@@ -62,7 +62,7 @@ This release brings full support for all Rock-Afire Explosion characters, moveme
 - **Service Lights**: Service station, rainbow lights (BD track)
 - **Stage Spotlights BD**: Sun, moon, spider, guitar lights (BD track)
 
-#### Unified Lights Group (for AI Show Builder)
+#### Unified Lights Group
 
 - New **Lights** group consolidates all lighting controls
 - Used by SAM (Show Analysis Module) for automated choreography
@@ -74,7 +74,7 @@ This release brings full support for all Rock-Afire Explosion characters, moveme
 #### JavaScript Files
 
 - **character-movements.js**:
-  - Updated version to v3.2.1
+  - Updated version to v3.2.2
   - Complete RAE bit chart mapping for all 94 TD and 96 BD channels
   - Added organized light control groups
   - Added unified "Lights" group for SAM compatibility
@@ -248,7 +248,7 @@ Complete rebrand from "Cyberstar Simulator" to "Lychee Conductor" with visual id
 
 #### Why the Rebrand?
 
-The project evolved to encompass much more than a simple simulator for the Rock-Afire Explosion animatronics. It became a comprehensive show orchestration tool with AI-assisted choreography, signal visualization, and export formats. "Lychee Conductor" better reflects the project's current scope as an orchestral conductor tool for complex multimedia shows.
+The project evolved to encompass much more than a simple simulator for the Rock-Afire Explosion animatronics. It became a comprehensive show orchestration tool with signal visualization, and export formats. "Lychee Conductor" better reflects the project's current scope as an orchestral conductor tool for complex multimedia shows.
 
 **Commits**: `7947e85` (main rebrand), `ee29c10` (docs rebrand)
 

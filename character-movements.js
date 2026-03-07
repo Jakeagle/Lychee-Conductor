@@ -1,5 +1,5 @@
 /**
- * Character Movement Catalog v3.2.1 - Complete RAE Bitmap
+ * Character Movement Catalog v3.2.2 - Complete RAE Bitmap
  * Maps each character movement to its specific data track (TD/BD) and bit index.
  * Bit indices are 0-indexed (subtract 1 from the 1-based spec).
  * Source: RAE_Bit_Chart.md (Rock-afire Explosion full channel mapping)
