@@ -102,8 +102,8 @@ _ROCK = {
         "soft":   ["body_lean", "head_up"],
         "hold_bass": 2, "hold_mid": 3, "hold_treble": 3, "hold_soft": 2,
     },
-    # ── Fats — keyboardist ──────────────────────────────────────────────────
-    "Fats": {
+    # ── Fatz — keyboardist ──────────────────────────────────────────────────
+    "Fatz": {
         "role": "keyboardist",
         "bass":   ["foot_tap", "arm_left_swing"],
         "mid":    ["mouth", "arm_right_swing", "head_left", "head_right"],

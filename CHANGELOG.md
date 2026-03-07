@@ -4,6 +4,20 @@ All notable changes to this project are documented in this file.
 
 ---
 
+## [3.2.3] - 2026-03-06
+
+### Hotfix: Revert naming to Fatz
+
+**Changed**: Character name corrected back to **Fatz** throughout the application to match original specification.
+
+#### Details
+
+- Renamed all internal references from `Fats` to `Fatz` (JS globals, Python SAM, showtapes, visualizer, etc.)
+- Updated toolbar color map, band order, and legacy configurations
+- Version number bumped to 3.2.3
+
+--
+
 ## [3.2.2] - 2026-03-06
 
 ### Hotfix: Character Naming Consistency
@@ -74,7 +88,7 @@ This release brings full support for all Rock-Afire Explosion characters, moveme
 #### JavaScript Files
 
 - **character-movements.js**:
-  - Updated version to v3.2.2
+  - Updated version to v3.2.3
   - Complete RAE bit chart mapping for all 94 TD and 96 BD channels
   - Added organized light control groups
   - Added unified "Lights" group for SAM compatibility

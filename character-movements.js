@@ -1,5 +1,5 @@
 /**
- * Character Movement Catalog v3.2.2 - Complete RAE Bitmap
+ * Character Movement Catalog v3.2.3 - Complete RAE Bitmap
  * Maps each character movement to its specific data track (TD/BD) and bit index.
  * Bit indices are 0-indexed (subtract 1 from the 1-based spec).
  * Source: RAE_Bit_Chart.md (Rock-afire Explosion full channel mapping)
@@ -62,8 +62,8 @@ const CHARACTER_MOVEMENTS = {
     },
   },
 
-  // --- FATS (Track TD) ---
-  Fats: {
+  // --- FATZ (Track TD) ---
+  Fatz: {
     movements: {
       eyelid_left: { track: "TD", bit: 40 },
       eyelid_right: { track: "TD", bit: 41 },
@@ -130,7 +130,7 @@ const CHARACTER_MOVEMENTS = {
       beach_bear: { track: "TD", bit: 81 },
       looney_bird: { track: "TD", bit: 82 },
       billy_bob: { track: "TD", bit: 83 },
-      fats: { track: "TD", bit: 84 },
+      fatz: { track: "TD", bit: 84 },
       duke: { track: "TD", bit: 85 },
       rolfe: { track: "TD", bit: 86 },
       earl: { track: "TD", bit: 87 },

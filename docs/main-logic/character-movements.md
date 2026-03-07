@@ -52,11 +52,11 @@ TD carries **94 usable control channels**. Three bits are hardware blanks that m
 | **Rolfe**            | 0–18             | mouth, eyelids, eyes, head (left/right/up), ears, arm raise/twist/elbow, body twist/lean           | Lead guitarist/vocalist         |
 | **Earl** (puppet)    | 19, 35–36        | head_tilt, mouth, eyebrow                                                                          | Attached to Rolfe's shoulder    |
 | **Duke LaRue**       | 20–34, 62–63     | head (left/right/up), ears, eyelids, eyes, mouth, elbows, arm swings, hi-hat, bass drum, body lean | Bassist/drummer                 |
-| **Fats**             | 40–44, 50–61     | eyelids, eyes, mouth, head (tip/left/right/up), arm swings, elbows, foot tap, body lean            | Keyboard player                 |
+| **Fatz**             | 40–44, 50–61     | eyelids, eyes, mouth, head (tip/left/right/up), arm swings, elbows, foot tap, body lean            | Keyboard player                 |
 | **Props (Animated)** | 37–39, 45–49     | sun (mouth/raise), moon (mouth/raise), looney bird hands, antioch down, baby bear raise            | Stage decorative props          |
 | **Organ Lights**     | 65–74            | top (blue/red/amber/green), leg (top/mid/bottom), strobes (continuous/flash)                       | Mounted on stage organ          |
 | **Sign Lights**      | 75–79            | inner, mid, outer, strobes (continuous/flash)                                                      | Exterior sign lighting          |
-| **Stage Spotlights** | 80–87            | mitzi, beach (bear), looney (bird), bob (billy), fats, duke, rolfe, earl                           | Individual character spotlights |
+| **Stage Spotlights** | 80–87            | mitzi, beach (bear), looney (bird), bob (billy), fatz, duke, rolfe, earl                           | Individual character spotlights |
 | **Curtains**         | 88–93            | open/close for: stage right, center stage, stage left                                              | Motorized stage curtains        |
 
 ### Track BD (Channel 3 in 4-ch WAV) — 96 bits

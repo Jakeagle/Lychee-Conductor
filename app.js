@@ -32,7 +32,7 @@ const BAND_CONFIG = {
     characters: {
       ch1: { name: "Billy Bob", monitorId: "monitor-billy" },
       ch2: { name: "Mitzi", monitorId: "monitor-mitzi" },
-      ch3: { name: "Fats", monitorId: "monitor-fats" },
+      ch3: { name: "Fatz", monitorId: "monitor-fatz" },
       ch4: { name: "Beach Bear", monitorId: "monitor-beach" },
       ch5: { name: "Dook LaRue", monitorId: "monitor-dook" },
       ch6: { name: "Rolfe", monitorId: "monitor-rolfe" },
@@ -886,7 +886,7 @@ function exportShowJSON(id) {
 
   const exportObj = {
     cyberstar_show: true,
-    version: "3.2.2",
+    version: "3.2.3",
     title: tape.title,
     band: tape.band, // "rock" | "munch"
     duration_ms: tape.duration,

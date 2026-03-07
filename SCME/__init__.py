@@ -90,24 +90,24 @@
 # │  18  Rolfe - Right Arm Twist    37  Rolfe - Earl Eyebrow               │
 # │  19  Rolfe - Right Elbow Twist  38  Props - Sun Mouth                  │
 # │  39  Props - Sun Raise          56  BLANK                              │
-# │  40  Specials - Dual Pressure   57  Fats - Left Arm Swing              │
-# │  41  Fats - Left Eyelid         58  Fats - Right Arm Swing             │
-# │  42  Fats - Right Eyelid        59  Fats - Left Elbow                  │
-# │  43  Fats - Eyes Left           60  Fats - Right Elbow                 │
-# │  44  Fats - Eyes Right          61  Fats - Foot Tap                    │
-# │  45  Fats - Mouth               62  Fats - Body Lean                   │
+# │  40  Specials - Dual Pressure   57  Fatz - Left Arm Swing              │
+# │  41  Fatz - Left Eyelid         58  Fatz - Right Arm Swing             │
+# │  42  Fatz - Right Eyelid        59  Fatz - Left Elbow                  │
+# │  43  Fatz - Eyes Left           60  Fatz - Right Elbow                 │
+# │  44  Fatz - Eyes Right          61  Fatz - Foot Tap                    │
+# │  45  Fatz - Mouth               62  Fatz - Body Lean                   │
 # │  46  Props - Moon Mouth         63  Duke - Right Foot (Bass Drum)      │
 # │  47  Props - Moon Raise         64  Duke - Body Lean                   │
 # │  48  Props - Looney Bird Hands  65  BLANK                              │
 # │  49  Props - Antioch Down       66  Organ - Top Blue                   │
 # │  50  Props - Baby Bear Raise    67  Organ - Top Red                    │
-# │  51  Fats - Head Tip Left       68  Organ - Top Amber                  │
-# │  52  Fats - Head Tip Right      69  Organ - Top Green                  │
-# │  53  Fats - Head Up             70  BLANK                              │
-# │  54  Fats - Head Left           71  Organ - Leg Top                    │
-# │  55  Fats - Head Right          72  Organ - Leg Mid                    │
+# │  51  Fatz - Head Tip Left       68  Organ - Top Amber                  │
+# │  52  Fatz - Head Tip Right      69  Organ - Top Green                  │
+# │  53  Fatz - Head Up             70  BLANK                              │
+# │  54  Fatz - Head Left           71  Organ - Leg Top                    │
+# │  55  Fatz - Head Right          72  Organ - Leg Mid                    │
 # │  73  Organ - Leg Bottom         84  Spots - Billy Bob                  │
-# │  74  Organ - Cont Strobe        85  Spots - Fats                       │
+# │  74  Organ - Cont Strobe        85  Spots - Fatz                       │
 # │  75  Organ - Flash Strobe       86  Spots - Duke                       │
 # │  76  Sign - Inner               87  Spots - Rolfe                      │
 # │  77  Sign - Mid                 88  Spots - Earl                       │

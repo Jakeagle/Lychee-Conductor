@@ -116,7 +116,7 @@
     "Rolfe",
     "Earl",
     "Duke LaRue",
-    "Fats",
+    "Fatz",
     "Beach Bear",
     "Looney Bird",
     "Mitzi",
