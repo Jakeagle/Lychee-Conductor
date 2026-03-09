@@ -60,6 +60,43 @@ When zooming in or out, active selections were lost because block elements were 
 - ✅ Selections persist until user explicitly cancels with Escape key
 - ✅ Enables zoom adjustment without losing active selection context
 
+### Bugfix: Export Loading Screens Not Appearing
+
+**Fixed**: Progress modals now reliably appear on repeated exports and for .rshw export.
+
+#### Problems
+
+1. **4ch WAV export on second run**: Loading screen would not appear on subsequent exports after the first one completed
+2. **.rshw export**: Loading screen never appeared because the modal was never explicitly shown
+
+#### Root Causes
+
+1. **pyModal state**: The `close()` function schedules a delayed hide/reset via timeout. If a second `open()` call happened before the previous timeout completed, the modal's CSS state could become inconsistent
+2. **.rshw export**: The `exportRSHW()` function called only `_edModal.step()` without first calling `_edModal.show()` to open the modal
+
+#### Solutions
+
+1. **pyModal resilience**:
+   - Added explicit `classList.remove()` before `classList.add()` in `open()` to ensure clean CSS state
+   - Ensures the fade-in transition fires properly even if modal is in mid-fade-out
+   - Applies to all three modal implementations: `pyModal` (app.js), `_edModal` (index.html), `_modal` (signal-visualizer.js)
+
+2. **.rshw export modal**:
+   - Added `_edModal.show("Building .rshw Showtape", ...)` call at the start of `exportRSHW()`
+   - Modal now opens and displays progress steps correctly
+
+3. **Modal reflow optimization**:
+   - Added `void element.offsetWidth` before class manipulation to force browser reflow
+   - Ensures CSS transitions fire reliably across all export types
+
+#### Impact
+
+- ✅ Loading screens appear on first export
+- ✅ Loading screens appear on repeated exports (second, third, etc.)
+- ✅ Loading screen appears for .rshw export
+- ✅ All export types show consistent progress feedback
+- ✅ Modal state properly resets between operations
+
 ---
 
 ## [3.2.3] - 2026-03-06

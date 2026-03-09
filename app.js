@@ -94,7 +94,9 @@ const pyModal = (() => {
     if (t) t.textContent = title || "Working\u2026";
     if (m) m.textContent = "";
     _setBar(0);
+    // Ensure element is visible before adding class
     el.hidden = false;
+    el.classList.remove("py-modal-visible");
     void el.offsetWidth; // force reflow so the CSS transition fires
     el.classList.add("py-modal-visible");
   }

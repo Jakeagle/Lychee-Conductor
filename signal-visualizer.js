@@ -84,6 +84,9 @@
       if (this._bar) this._bar.style.width = `${pct}%`;
       if (this._el) {
         this._el.removeAttribute("hidden");
+        // Ensure element is visible and fully removed any fade-out state
+        this._el.classList.remove("py-modal-visible");
+        void this._el.offsetWidth; // force reflow
         this._el.classList.add("py-modal-visible");
       }
     },
