@@ -2960,6 +2960,16 @@
                 const hasHorizontalMovement =
                   bm.previewStart !== undefined &&
                   bm.previewStart !== bm.startFrame;
+                console.log(
+                  "[MultiBlockMove] hasVertical:",
+                  hasVerticalMovement,
+                  "hasHorizontal:",
+                  hasHorizontalMovement,
+                  "targetChar:",
+                  bm.targetCharName,
+                  "origChar:",
+                  bm.charName,
+                );
                 if (hasVerticalMovement || hasHorizontalMovement) {
                   const frameDelta =
                     bm.previewStart !== undefined
@@ -3035,6 +3045,9 @@
                     }
                   }
                   if (!canMove) {
+                    console.log(
+                      "[MultiBlockMove] Move blocked - overlap detected",
+                    );
                     setStatus(
                       "⚠ Cannot move — one or more blocks would overlap an existing signal.",
                       "#fa0",
@@ -3054,10 +3067,23 @@
                       refreshRow(cn, mk);
                     }
                   } else {
+                    console.log(
+                      "[MultiBlockMove] Committing",
+                      allMoves.length,
+                      "moves",
+                    );
                     for (const mv of allMoves) {
                       const isCrossRow =
                         mv.oldCharName !== mv.charName ||
                         mv.oldMovKey !== mv.movKey;
+                      console.log(
+                        "[MultiBlockMove] Move:",
+                        mv.oldCharName,
+                        "→",
+                        mv.charName,
+                        "isCrossRow:",
+                        isCrossRow,
+                      );
                       if (isCrossRow) {
                         commitBlockMoveToNewRow(
                           mv.oldCharName,
@@ -3111,6 +3137,9 @@
                   }
                 } else {
                   // No movement detected — just refresh to clear dragging state
+                  console.log(
+                    "[MultiBlockMove] No movement detected, refreshing rows",
+                  );
                   const rowsToRefresh = new Set();
                   for (const m of [bm, ...(bm.multiBlocks || [])]) {
                     rowsToRefresh.add(`${m.charName}||${m.movKey}`);
