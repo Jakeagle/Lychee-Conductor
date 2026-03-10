@@ -197,109 +197,101 @@ async function exportCso(wavBuffer, opts = {}) {
     );
   }
 
-  // ── 5. Pack frame table ────────────────────────────────────────────────────
+  // ── 5. Pack frame table (OPTIMIZED: byte-aligned) ─────────────────────────
   report.push("Packing frame table…");
   const frameTableBytes = totalFrames * CSO_BYTES_PER_FRAME;
   const frameTable = new Uint8Array(frameTableBytes);
+
+  // Pre-compute lookup tables for bit→byte conversion to avoid Math.floor in hot loop
+  const bitToByteIdx = new Uint8Array(95); // bits 1..94
+  const bitToShift = new Uint8Array(95);
+  for (let n = 1; n <= 94; n++) {
+    bitToByteIdx[n] = (n - 1) >>> 3; // (n-1) / 8 via bitshift
+    bitToShift[n] = 7 - ((n - 1) & 7); // 7 - ((n-1) % 8) via bitmask
+  }
+  const bitToByteIdx_bd = new Uint8Array(97); // bits 1..96
+  const bitToShift_bd = new Uint8Array(97);
+  for (let n = 1; n <= 96; n++) {
+    bitToByteIdx_bd[n] = (n - 1) >>> 3;
+    bitToShift_bd[n] = 7 - ((n - 1) & 7);
+  }
 
   for (let f = 0; f < totalFrames; f++) {
     const td = tdFrames[f];
     const bd = bdFrames[f];
     const off = f * CSO_BYTES_PER_FRAME;
 
-    // Pack TD bits 1-94 (PDF, 1-indexed) → bytes 0-11
-    // PDF bit N is raw bit index N+7 (skipping the 8-bit sync header at bit 0).
-    // In the output bitmask: bit N → byte (N-1)/8, shift 7-((N-1)%8)  (MSB-first)
+    // Pack TD bits 1-94 (PDF, 1-indexed) → bytes 0-11 using lookup tables
     for (let n = 1; n <= CSO_TD_BIT_COUNT; n++) {
-      const rawIdx = 7 + n; // skip 0xFF sync byte (bits 0-7)
-      const bitVal = rawIdx < td.length ? td[rawIdx] : 0;
-      const byteIdx = Math.floor((n - 1) / 8);
-      const bitShift = 7 - ((n - 1) % 8);
-      if (bitVal) frameTable[off + byteIdx] |= 1 << bitShift;
+      const rawIdx = 7 + n; // skip 0xFF sync byte
+      if (rawIdx < td.length && td[rawIdx]) {
+        frameTable[off + bitToByteIdx[n]] |= 1 << bitToShift[n];
+      }
     }
 
-    // Pack BD bits 1-96 → bytes 12-23
+    // Pack BD bits 1-96 → bytes 12-23 using lookup tables
     for (let n = 1; n <= CSO_BD_BIT_COUNT; n++) {
       const rawIdx = 7 + n;
-      const bitVal = rawIdx < bd.length ? bd[rawIdx] : 0;
-      const byteIdx = 12 + Math.floor((n - 1) / 8);
-      const bitShift = 7 - ((n - 1) % 8);
-      if (bitVal) frameTable[off + byteIdx] |= 1 << bitShift;
+      if (rawIdx < bd.length && bd[rawIdx]) {
+        frameTable[off + 12 + bitToByteIdx_bd[n]] |= 1 << bitToShift_bd[n];
+      }
     }
   }
 
-  // ── 6. Pack music PCM ─────────────────────────────────────────────────────
+  // ── 6. Pack music PCM (OPTIMIZED: use Int16Array directly) ────────────────
   report.push("Packing music PCM…");
   const musicSamples = Math.min(musicL.length, musicR.length);
-  const musicPCM = new Uint8Array(musicSamples * 4); // 2ch × 2 bytes
-  const pcmView = new DataView(musicPCM.buffer);
+  const i16arr = new Int16Array(musicSamples * 2); // L,R interleaved
 
   for (let i = 0; i < musicSamples; i++) {
     const l = Math.max(-1, Math.min(1, musicL[i]));
     const r = Math.max(-1, Math.min(1, musicR[i]));
-    pcmView.setInt16(i * 4, Math.round(l < 0 ? l * 32768 : l * 32767), true);
-    pcmView.setInt16(
-      i * 4 + 2,
-      Math.round(r < 0 ? r * 32768 : r * 32767),
-      true,
-    );
+    // Use ternary for sign-dependent scaling (avoids division)
+    i16arr[i * 2] = Math.round(l === 0 ? 0 : l < 0 ? l * 32768 : l * 32767);
+    i16arr[i * 2 + 1] = Math.round(r === 0 ? 0 : r < 0 ? r * 32768 : r * 32767);
   }
+  const musicPCM = new Uint8Array(i16arr.buffer);
 
   // ── 7. Compute frame table CRC-32 ─────────────────────────────────────────
   const crc32 = computeCRC32(frameTable);
 
-  // ── 8. Assemble .cso binary ───────────────────────────────────────────────
+  // ── 8. Assemble .cso binary (OPTIMIZED: single buffer allocation) ───────
   report.push("Writing .cso binary…");
   const totalSize = CSO_HEADER_SIZE + frameTableBytes + musicPCM.byteLength;
   const buf = new ArrayBuffer(totalSize);
   const view = new DataView(buf);
   const u8 = new Uint8Array(buf);
-  let off = 0;
 
-  // Magic
-  for (let i = 0; i < CSO_MAGIC.length; i++) u8[off++] = CSO_MAGIC[i];
+  // Write header using DataView (efficient for multi-byte values)
+  let hdrOff = 0;
+  // Magic (4 bytes)
+  for (let i = 0; i < CSO_MAGIC.length; i++) u8[hdrOff + i] = CSO_MAGIC[i];
+  hdrOff += 4;
 
-  // Version, TdBitCount, BdBitCount, reserved
-  u8[off++] = CSO_VERSION;
-  u8[off++] = CSO_TD_BIT_COUNT;
-  u8[off++] = CSO_BD_BIT_COUNT;
-  u8[off++] = 0; // reserved
+  // Version, TdBitCount, BdBitCount, reserved (4 bytes)
+  u8[hdrOff++] = CSO_VERSION;
+  u8[hdrOff++] = CSO_TD_BIT_COUNT;
+  u8[hdrOff++] = CSO_BD_BIT_COUNT;
+  u8[hdrOff++] = 0;
 
-  // SampleRate (int32 LE)
-  view.setInt32(off, wav.sampleRate, true);
-  off += 4;
+  // Multi-byte fields using DataView (already big-endian tolerant)
+  view.setInt32(hdrOff, wav.sampleRate, true);
+  hdrOff += 4;
+  view.setInt32(hdrOff, totalFrames, true);
+  hdrOff += 4;
+  view.setInt32(hdrOff, musicSamples, true);
+  hdrOff += 4;
+  view.setInt32(hdrOff, CSO_FPS_NUM, true);
+  hdrOff += 4;
+  view.setInt32(hdrOff, CSO_FPS_DEN, true);
+  hdrOff += 4;
+  view.setUint32(hdrOff, validationPassed ? 1 : 0, true);
+  hdrOff += 4;
+  view.setUint32(hdrOff, crc32, true);
 
-  // TotalFrames
-  view.setInt32(off, totalFrames, true);
-  off += 4;
-
-  // MusicSamplesPerChannel
-  view.setInt32(off, musicSamples, true);
-  off += 4;
-
-  // FrameRateNum / Den
-  view.setInt32(off, CSO_FPS_NUM, true);
-  off += 4;
-  view.setInt32(off, CSO_FPS_DEN, true);
-  off += 4;
-
-  // ValidationFlags (bit 0 = SCME passed)
-  view.setUint32(off, validationPassed ? 1 : 0, true);
-  off += 4;
-
-  // CRC32
-  view.setUint32(off, crc32, true);
-  off += 4;
-
-  // Reserved (zeros — skip to HEADER_SIZE)
-  off = CSO_HEADER_SIZE;
-
-  // Frame table
-  u8.set(frameTable, off);
-  off += frameTableBytes;
-
-  // Music PCM
-  u8.set(musicPCM, off);
+  // Copy frame table and music PCM (single pass)
+  u8.set(frameTable, CSO_HEADER_SIZE);
+  u8.set(musicPCM, CSO_HEADER_SIZE + frameTableBytes);
 
   const blob = new Blob([buf], { type: "application/octet-stream" });
   report.push(`Done. .cso size: ${(totalSize / 1024).toFixed(1)} KB`);
@@ -351,12 +343,13 @@ async function exportCsoFromCurrentShow() {
 
 // ─── Internal helpers ──────────────────────────────────────────────────────────
 
-/** Split a flat Uint8Array of bits into 96-bit frame arrays. */
+/** Split a flat Uint8Array of bits into 96-bit frame arrays (OPTIMIZED: pre-allocate). */
 function segmentFrames(bits) {
-  const frames = [];
   const step = CSO_FRAME_BITS;
-  for (let i = 0; i + step <= bits.length; i += step) {
-    frames.push(bits.subarray(i, i + step));
+  const frameCount = Math.floor(bits.length / step);
+  const frames = new Array(frameCount);
+  for (let i = 0; i < frameCount; i++) {
+    frames[i] = bits.subarray(i * step, (i + 1) * step);
   }
   return frames;
 }

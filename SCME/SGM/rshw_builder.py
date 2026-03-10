@@ -262,11 +262,11 @@ def _build_stereo_wav(left, right, sample_rate):
     """
     n = min(len(left), len(right))
 
-    # Interleave L + R into one flat list, clamp to int16 range
-    interleaved = _array_mod.array('h')
+    # OPTIMIZED: Pre-allocate interleaved array with exact size
+    interleaved = _array_mod.array('h', [0] * (n * 2))
     for i in range(n):
-        interleaved.append(max(-32768, min(32767, int(left[i]))))
-        interleaved.append(max(-32768, min(32767, int(right[i]))))
+        interleaved[i * 2] = max(-32768, min(32767, int(left[i])))
+        interleaved[i * 2 + 1] = max(-32768, min(32767, int(right[i])))
 
     pcm_bytes = interleaved.tobytes()
 
@@ -454,21 +454,21 @@ def _build_signal_data(td_frames, bd_frames, audio_length_s, fps=_RSHW_FPS,
         # Frame delimiter
         signal_data.append(0)
 
-        # ── TD bits → signalData values 1..94 ───────────────────────────
+        # TD frame index
         td_idx = int(t / td_frame_s)
         if td_idx < len(td_frames):
             frame = td_frames[td_idx]
             for bit_idx, bit_val in enumerate(frame):
                 if bit_val:
-                    signal_data.append(bit_idx + 1)        # 1-indexed
+                    signal_data.append(bit_idx + 1)
 
-        # ── BD bits → signalData values 151..246 ────────────────────────
+        # BD frame index
         bd_idx = int(t / bd_frame_s)
         if bd_idx < len(bd_frames):
             frame = bd_frames[bd_idx]
             for bit_idx, bit_val in enumerate(frame):
                 if bit_val:
-                    signal_data.append(bit_idx + 151)      # 150 offset + 1-indexed
+                    signal_data.append(bit_idx + 151)
 
     return signal_data
 

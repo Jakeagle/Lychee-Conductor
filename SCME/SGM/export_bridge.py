@@ -414,6 +414,7 @@ class _FrameBuilder:
         if remainder:
             total_samples += self._frame_samps - remainder
 
+        # OPTIMIZED: Pre-allocate entire output buffer upfront 
         output    = bytearray(total_samples * 2)
         enc       = _BMCEncoder()
         sorted_ev = sorted(events, key=lambda e: int(e["time"] * _SR))
@@ -445,11 +446,12 @@ class _FrameBuilder:
         pos = start
         while pos < end:
             frame_pcm   = enc.encode_frame(list(self._frame))
-            frame_bytes = struct.pack(f"<{len(frame_pcm)}h", *frame_pcm)
             can_write   = min(self._frame_samps, end - pos)
+            # OPTIMIZED: Pack exact size needed to avoid alloc overhead
+            frame_bytes = struct.pack(f"<{can_write}h", *frame_pcm[:can_write])
             byte_s      = pos * 2
             byte_e      = byte_s + can_write * 2
-            output[byte_s:byte_e] = frame_bytes[: can_write * 2]
+            output[byte_s:byte_e] = frame_bytes
             pos += can_write
 
 
