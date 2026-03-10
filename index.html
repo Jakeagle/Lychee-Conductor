@@ -2970,6 +2970,20 @@
                   const targetCharName = bm.targetCharName || bm.charName;
                   const targetMovKey = bm.targetMovKey || bm.movKey;
 
+                  // Calculate row offset for vertical movements to preserve relative spacing
+                  let rowOffset = 0;
+                  if (crossRow) {
+                    const primaryOldRowIdx = getRowIndex(
+                      bm.charName,
+                      bm.movKey,
+                    );
+                    const primaryNewRowIdx = getRowIndex(
+                      targetCharName,
+                      targetMovKey,
+                    );
+                    rowOffset = primaryNewRowIdx - primaryOldRowIdx;
+                  }
+
                   const allMoves = [
                     {
                       charName: targetCharName,
@@ -2991,9 +3005,21 @@
                           mb.startFrame + frameDelta,
                         ),
                       );
+                      // For vertical moves, apply row offset to each multiblock
+                      let newCharName = mb.charName;
+                      let newMovKey = mb.movKey;
+                      if (crossRow) {
+                        const mbOldRowIdx = getRowIndex(mb.charName, mb.movKey);
+                        const mbNewRowIdx = mbOldRowIdx + rowOffset;
+                        const newRow = getRowAtIndex(mbNewRowIdx);
+                        if (newRow) {
+                          newCharName = newRow.charName;
+                          newMovKey = newRow.movKey;
+                        }
+                      }
                       return {
-                        charName: crossRow ? targetCharName : mb.charName,
-                        movKey: crossRow ? targetMovKey : mb.movKey,
+                        charName: newCharName,
+                        movKey: newMovKey,
                         oldStart: mb.startFrame,
                         oldEnd: mb.endFrame,
                         newStart: ns,
@@ -3435,6 +3461,28 @@
         setStatus(
           `Moved: ${charName} / ${movKey.replace(/_/g, " ")} → F${newStart}–F${newEnd} (${frameToTimestamp(newStart)} – ${frameToTimestamp(newEnd)})`,
         );
+      }
+
+      /* ── Helper: get row index by charName/movKey ── */
+      function getRowIndex(charName, movKey) {
+        let idx = 0;
+        for (const row of elTracks.querySelectorAll(".track-row")) {
+          if (row.dataset.char === charName && row.dataset.mov === movKey) {
+            return idx;
+          }
+          idx++;
+        }
+        return -1;
+      }
+
+      /* ── Helper: get charName/movKey by row index ── */
+      function getRowAtIndex(idx) {
+        const rows = Array.from(elTracks.querySelectorAll(".track-row"));
+        if (idx < 0 || idx >= rows.length) return null;
+        return {
+          charName: rows[idx].dataset.char,
+          movKey: rows[idx].dataset.mov,
+        };
       }
 
       /* ── Helper: build the list of other selected blocks for multi-drag ── */
